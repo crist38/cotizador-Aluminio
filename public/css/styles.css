@@ -1872,22 +1872,28 @@ body.light-theme .cotizacion-manager-card {
 
 .cotizacion-manager-card .btn-mgr-add {
   flex: 1 1 100%;
-  background: #2563eb;
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
   color: #ffffff;
 }
 .cotizacion-manager-card .btn-mgr-add:hover {
-  background: #1d4ed8;
-  box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 8px 25px rgba(20, 184, 166, 0.4), var(--shadow-glow);
+  filter: brightness(1.15);
+}
+body.light-theme .cotizacion-manager-card .btn-mgr-add {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
 }
 
 .cotizacion-manager-card .btn-mgr-save {
   flex: 1 1 calc(50% - 0.4rem);
-  background: #16a34a;
+  background: linear-gradient(135deg, var(--accent2-light), #047857);
   color: #ffffff;
 }
 .cotizacion-manager-card .btn-mgr-save:hover {
-  background: #15803d;
-  box-shadow: 0 0 12px rgba(22, 163, 74, 0.3);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+  filter: brightness(1.15);
+}
+body.light-theme .cotizacion-manager-card .btn-mgr-save {
+  background: linear-gradient(135deg, var(--accent2-light), #047857);
 }
 
 .cotizacion-manager-card .btn-mgr-duplicate {
@@ -1912,20 +1918,17 @@ body.light-theme .cotizacion-manager-card .btn-mgr-duplicate:hover {
 
 .cotizacion-manager-card .btn-mgr-delete {
   flex: 1 1 calc(50% - 0.4rem);
-  background: rgba(244, 63, 94, 0.1);
-  color: #f43f5e;
-  border: 1px solid rgba(244, 63, 94, 0.3);
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  color: #ffffff;
+  border: none;
 }
 .cotizacion-manager-card .btn-mgr-delete:hover {
-  background: rgba(244, 63, 94, 0.2);
-  border-color: #f43f5e;
+  box-shadow: 0 8px 25px rgba(244, 63, 94, 0.4);
+  filter: brightness(1.15);
 }
 body.light-theme .cotizacion-manager-card .btn-mgr-delete {
-  background: #fff1f2;
-  color: #e11d48;
-  border: 1px solid #fecdd3;
+  background: linear-gradient(135deg, #e11d48, #9f1239);
 }
 body.light-theme .cotizacion-manager-card .btn-mgr-delete:hover {
-  background: #ffe4e6;
-  border-color: #fb7185;
+  box-shadow: 0 8px 25px rgba(225, 29, 72, 0.3);
 }
