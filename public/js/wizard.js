@@ -328,6 +328,11 @@ const Wizard = (() => {
 
   async function calcular() {
     const obra    = document.getElementById('inp-obra').value.trim();
+    if (!obra) {
+      App.toast('El Nombre de Obra / Cliente es obligatorio', 'error');
+      document.getElementById('inp-obra').focus();
+      return;
+    }
     const anchoMm = parseFloat(document.getElementById('inp-ancho').value);
     const altoMm  = parseFloat(document.getElementById('inp-alto').value);
     const cant    = parseInt(document.getElementById('inp-cant').value) || 1;
@@ -387,6 +392,12 @@ const Wizard = (() => {
 
   // ── Calcula y abre directamente el modal de cotización ──
   async function calcularYCotizar() {
+    const obra    = document.getElementById('inp-obra').value.trim();
+    if (!obra) {
+      App.toast('El Nombre de Obra / Cliente es obligatorio', 'error');
+      document.getElementById('inp-obra').focus();
+      return;
+    }
     const anchoMm = parseFloat(document.getElementById('inp-ancho').value);
     const altoMm  = parseFloat(document.getElementById('inp-alto').value);
     if (!anchoMm || !altoMm || anchoMm < 100 || altoMm < 100) {
@@ -394,7 +405,6 @@ const Wizard = (() => {
       return;
     }
     // Reutiliza la lógica de calcular() pero en vez de ir a resultado, abre el modal
-    const obra    = document.getElementById('inp-obra').value.trim();
     const cant    = parseInt(document.getElementById('inp-cant').value) || 1;
     const porce   = parseFloat(document.getElementById('inp-porce').value) || 100;
     const iva     = parseFloat(document.getElementById('inp-iva').value) || 19;
@@ -522,8 +532,13 @@ const Wizard = (() => {
     }
   }
 
-  async function syncCurrentConfig() {
+  async function syncCurrentConfig(requireObra = true) {
     const obra    = document.getElementById('inp-obra')?.value.trim() || '';
+    if (requireObra && !obra) {
+      App.toast('El Nombre de Obra / Cliente es obligatorio', 'error');
+      document.getElementById('inp-obra')?.focus();
+      return false;
+    }
     const anchoMm = parseFloat(document.getElementById('inp-ancho')?.value);
     const altoMm  = parseFloat(document.getElementById('inp-alto')?.value);
     const cant    = parseInt(document.getElementById('inp-cant')?.value) || 1;
@@ -638,7 +653,7 @@ const Wizard = (() => {
   }
 
   async function eliminarVentana() {
-    await syncCurrentConfig();
+    await syncCurrentConfig(false);
     if (!window._lastCfg) {
       App.toast('No hay ninguna ventana seleccionada', 'error');
       return;

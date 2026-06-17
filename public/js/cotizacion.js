@@ -117,6 +117,13 @@ const Cotizacion = (() => {
   function agregarItem(datosResultado) {
     const { totales, cfg, canvasDataUrl } = datosResultado;
 
+    const clienteVal = document.getElementById('cot-cliente')?.value.trim();
+    if (!clienteVal) {
+      App.toast('El nombre del cliente/empresa es obligatorio', 'error');
+      document.getElementById('cot-cliente')?.focus();
+      return;
+    }
+
     // Leer descripción personalizada si fue escrita en el modal
     const descExtra = document.getElementById('cot-desc-extra')?.value || '';
     const colorMap  = { 'BL': 'Blanco', 'B': 'Bronce', 'M': 'Mate', 'RO': 'Roble', 'T': 'Titanio' };
