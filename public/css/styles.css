@@ -496,12 +496,30 @@ body.light-theme .option-card:hover .option-card-preview {
   display: grid;
   grid-template-columns: 1fr 440px; /* Viewport CAD a la izquierda, formulario a la derecha */
   gap: 2rem;
-  align-items: stretch;
+  align-items: start;
+}
+
+/* Visor CAD del paso 3: compacto y fijo arriba mientras se completa el formulario */
+#step-medidas .canvas-container {
+  position: sticky;
+  top: 90px;
+  min-height: 0;
+  padding: 1rem;
+}
+
+#preview-canvas {
+  width: auto;
+  height: auto;
+  max-height: 320px;
 }
 
 @media (max-width: 1024px) {
   .form-layout {
     grid-template-columns: 1fr;
+  }
+  #step-medidas .canvas-container {
+    position: relative;
+    top: 0;
   }
 }
 
