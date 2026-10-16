@@ -284,6 +284,21 @@
           <button class="btn-primary" onclick="Precios.guardar()">💾 Guardar Cambios</button>
         </div>
       </div>
+      <div class="precios-subtitle">Valor m² por línea</div>
+      <p class="precios-hint">Si una línea tiene valor m² mayor a 0, el total neto se calcula como m² × valor. Con 0 se usa el cálculo por materiales.</p>
+      <div class="table-container" style="margin-bottom:2rem">
+        <table id="tabla-lineas" class="result-table">
+          <thead>
+            <tr>
+              <th>Línea</th>
+              <th>Descripción</th>
+              <th class="num">Valor m²</th>
+            </tr>
+          </thead>
+          <tbody id="lineas-body"></tbody>
+        </table>
+      </div>
+      <div class="precios-subtitle">Perfiles y accesorios</div>
       <div class="table-container">
         <table id="tabla-precios" class="result-table">
           <thead>
@@ -388,6 +403,35 @@
       <div class="cot-tot-row cot-tot-final"><span>TOTAL</span><span id="cot-total">$ 0</span></div>
     </div>
   </div>
+
+  <!-- ====== BARRA FIJA METRAJE TOTAL ====== -->
+  <footer id="metraje-bar" class="metraje-bar">
+    <div class="metraje-inner">
+      <div class="metraje-left">
+        <div class="metraje-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        </div>
+        <div>
+          <p class="metraje-label">Metraje Total</p>
+          <p class="metraje-value">Total Metros Cuadrados: <span id="bar-m2">0.00 m²</span></p>
+        </div>
+      </div>
+      <div class="metraje-stats">
+        <div class="metraje-stat metraje-stat-prom">
+          <p class="metraje-label">Valor Promedio por m²</p>
+          <p class="metraje-num" id="bar-prom-m2">$0</p>
+        </div>
+        <div class="metraje-stat">
+          <p class="metraje-label">Total Neto</p>
+          <p class="metraje-num metraje-num-neto" id="bar-neto">$0</p>
+        </div>
+        <div class="metraje-stat">
+          <p class="metraje-label">Total (con IVA)</p>
+          <p class="metraje-num metraje-num-total" id="bar-total">$0</p>
+        </div>
+      </div>
+    </div>
+  </footer>
 
   <script src="/js/precios.js"></script>
   <script src="/js/calculos.js"></script>

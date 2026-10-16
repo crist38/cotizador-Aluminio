@@ -4,6 +4,7 @@
    ========================================================================== */
 
 :root {
+  --metraje-bar-h: 76px;
   /* TEMA OSCURO (Por defecto) */
   --bg-base: #060913;
   --bg-surface: #0f172a;
@@ -1180,6 +1181,21 @@ body.light-theme .info-chip .chip-val {
   gap: 1rem;
 }
 
+.precios-subtitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-light);
+  margin-bottom: 0.5rem;
+}
+
+.precios-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
 .precio-input {
   background: rgba(15, 23, 42, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1360,7 +1376,7 @@ body.light-theme .modal-footer {
 /* ── FLOATING QUOTATION PANEL (BOTTOM DRAWER) ── */
 .cot-panel {
   position: fixed;
-  bottom: 1.25rem;
+  bottom: calc(var(--metraje-bar-h) + 0.75rem);
   left: 50%;
   transform: translate(-50%, 0);
   z-index: 400;
@@ -1372,7 +1388,7 @@ body.light-theme .modal-footer {
   border: 1px solid rgba(20, 184, 166, 0.25);
   border-radius: var(--radius);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), var(--shadow-glow);
-  max-height: 300px;
+  max-height: min(480px, 85vh);
   overflow: hidden;
   transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   animation: slideUpFloating 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -1632,6 +1648,154 @@ body:has(.cot-panel.collapsed:not([style*="display:none"])) .app-footer {
   margin-bottom: 80px;
 }
 
+/* ── BARRA FIJA METRAJE TOTAL ── */
+body {
+  padding-bottom: var(--metraje-bar-h);
+}
+
+.metraje-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 390;
+  min-height: var(--metraje-bar-h);
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+}
+
+body.light-theme .metraje-bar {
+  background: rgba(255, 255, 255, 0.8);
+  border-top-color: #e2e8f0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.04);
+}
+
+.metraje-inner {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.metraje-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.metraje-icon {
+  display: flex;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.12);
+  color: var(--accent-light);
+}
+
+body.light-theme .metraje-icon {
+  background: #f0fdfa;
+  color: #0d9488;
+}
+
+.metraje-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.metraje-bar p {
+  margin: 0;
+}
+
+.metraje-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.metraje-stat .metraje-label {
+  font-size: 10px;
+}
+
+.metraje-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.metraje-value span {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent-light);
+}
+
+body.light-theme .metraje-value span {
+  color: #0d9488;
+}
+
+.metraje-stats {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.metraje-stat {
+  text-align: right;
+}
+
+.metraje-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+body.light-theme .metraje-num {
+  color: #64748b;
+}
+
+.metraje-num-neto {
+  color: var(--text-primary);
+}
+
+body.light-theme .metraje-num-neto {
+  color: #1e293b;
+}
+
+.metraje-num-total {
+  color: var(--accent-light);
+}
+
+body.light-theme .metraje-num-total {
+  color: #0f766e;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --metraje-bar-h: 118px;
+  }
+  .metraje-inner {
+    flex-direction: column;
+  }
+  .metraje-value {
+    font-size: 0.875rem;
+  }
+  .metraje-stats {
+    gap: 1rem;
+  }
+  .metraje-stat-prom {
+    display: none;
+  }
+}
+
 /* ── APP FOOTER ── */
 .app-footer {
   background: #090d16;
@@ -1785,7 +1949,7 @@ body.light-theme .toast {
   }
   .cot-panel {
     width: calc(100% - 1.5rem);
-    bottom: 0.75rem;
+    bottom: calc(var(--metraje-bar-h) + 0.5rem);
   }
   .cot-panel-header {
     padding: 0.75rem 1rem;
@@ -1824,6 +1988,7 @@ body.light-theme .toast {
   .canvas-corners-decor,
   .app-footer,
   .cot-panel,
+  .metraje-bar,
   .cad-overlay-container {
     display: none !important;
   }

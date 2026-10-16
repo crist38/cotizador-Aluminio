@@ -37,6 +37,7 @@ const Calculos = (() => {
       demas:  cfg.demas   || '',
       lin:    cfg.lin     || 'AL15',
       rotu:   cfg.rotu    || '',
+      valorM2: parseFloat(cfg.valorM2) || 0,
     };
     resultItems = [];
   }
@@ -557,7 +558,12 @@ const Calculos = (() => {
       }
     });
 
-    const totalNeto = totalAluminio + totalAcc + totalCristal;
+    // Si la línea tiene valor m² configurado, el neto se cobra por superficie
+    const m2Producto = state.ancho * state.alto * cant;
+    const porM2 = state.valorM2 > 0;
+    const totalNeto = porM2
+      ? m2Producto * state.valorM2
+      : totalAluminio + totalAcc + totalCristal;
     const totalIva = totalNeto * iva;
     const totalConIva = totalNeto + totalIva;
 
@@ -572,6 +578,9 @@ const Calculos = (() => {
         conIva: totalConIva,
         kilos: kilos,
         metros: metros,
+        porM2: porM2,
+        valorM2: state.valorM2,
+        m2Producto: m2Producto,
       },
       cfg: { ...state },
     };

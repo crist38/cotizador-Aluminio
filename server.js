@@ -5,6 +5,7 @@ const path = require('path');
 const app = express();
 const PORT = 3000;
 const PRICES_FILE = path.join(__dirname, 'data', 'precios.json');
+const LINEAS_FILE = path.join(__dirname, 'data', 'lineas.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -33,6 +34,26 @@ app.get('/api/precios', (req, res) => {
 app.put('/api/precios', (req, res) => {
   try {
     fs.writeFileSync(PRICES_FILE, JSON.stringify(req.body, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET valor m² por línea
+app.get('/api/lineas', (req, res) => {
+  try {
+    const data = JSON.parse(fs.readFileSync(LINEAS_FILE, 'utf8'));
+    res.json(data);
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+// PUT update valor m² por línea
+app.put('/api/lineas', (req, res) => {
+  try {
+    fs.writeFileSync(LINEAS_FILE, JSON.stringify(req.body, null, 2));
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

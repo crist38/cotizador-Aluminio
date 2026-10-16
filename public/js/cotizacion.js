@@ -6,6 +6,8 @@ const Cotizacion = (() => {
 
   // Datos acumulados de la sesión de cotización
   let items = [];
+  // Ventana que se está editando (aún no agregada) para la barra de metraje
+  let actual = null;
   let fmtCLP = v => new Intl.NumberFormat('es-CL', {
     style: 'currency', currency: 'CLP', maximumFractionDigits: 0
   }).format(v);
@@ -184,6 +186,38 @@ const Cotizacion = (() => {
     if (typeof Wizard !== 'undefined') Wizard.actualizarBadgePaso3(items.length);
   }
 
+  function m2De(cfg, cantidad) {
+    const anchoMm = cfg.anchoMm || Math.round((cfg.ancho || 0) * 1000);
+    const altoMm  = cfg.altoMm  || Math.round((cfg.alto  || 0) * 1000);
+    return (anchoMm / 1000) * (altoMm / 1000) * cantidad;
+  }
+
+  function mismaVentana(a, b) {
+    return a.anchoMm === b.anchoMm && a.altoMm === b.altoMm &&
+      a.tipo === b.tipo && a.subtipo === b.subtipo && a.cant === b.cant;
+  }
+
+  // Ventana en edición: se suma a la barra mientras no esté ya en la cotización
+  function setActual(cfg, totales) {
+    actual = cfg && totales ? { cfg: { ...cfg }, totales: { ...totales } } : null;
+    actualizarBarra();
+  }
+
+  function actualizarBarra() {
+    let m2    = items.reduce((s, i) => s + m2De(i.cfg, i.cantidad), 0);
+    let neto  = items.reduce((s, i) => s + i.neto, 0);
+    let total = items.reduce((s, i) => s + i.precio, 0);
+    if (actual && !items.some(i => mismaVentana(i.cfg, actual.cfg))) {
+      m2    += m2De(actual.cfg, actual.cfg.cant || 1);
+      neto  += actual.totales.neto || 0;
+      total += actual.totales.conIva || 0;
+    }
+    document.getElementById('bar-m2').textContent      = m2.toFixed(2) + ' m²';
+    document.getElementById('bar-prom-m2').textContent = fmtCLP(m2 > 0 ? neto / m2 : 0);
+    document.getElementById('bar-neto').textContent    = fmtCLP(neto);
+    document.getElementById('bar-total').textContent   = fmtCLP(total);
+  }
+
   function renderizarItems() {
     const tbody = document.getElementById('cot-items-body');
     if (!tbody) return;
@@ -210,6 +244,8 @@ const Cotizacion = (() => {
     document.getElementById('cot-subtotal').textContent = fmtCLP(totalNeto);
     document.getElementById('cot-iva').textContent      = fmtCLP(totalIva);
     document.getElementById('cot-total').textContent    = fmtCLP(totalFinal);
+
+    actualizarBarra();
   }
 
   // ── Genera el HTML de la cotización para imprimir ──
@@ -541,6 +577,7 @@ const Cotizacion = (() => {
     agregarItemDirecto,
     eliminarItem,
     renderizarItems,
+    setActual,
     solicitarAgregar,
     imprimir,
     limpiar,

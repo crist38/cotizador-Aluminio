@@ -200,7 +200,25 @@ const Wizard = (() => {
   function showStep(id) {
     document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    if (id === 'step-medidas') actualizarBarraEnVivo();
+    else if (id === 'step-tipo') Cotizacion.setActual(null);
   }
+
+  // Recalcula la ventana en edición y la refleja en la barra de metraje
+  let barraTimer = null;
+  function actualizarBarraEnVivo() {
+    clearTimeout(barraTimer);
+    barraTimer = setTimeout(async () => {
+      const ok = await syncCurrentConfig(false);
+      Cotizacion.setActual(ok ? window._lastCfg : null, ok ? window._lastTotales : null);
+    }, 250);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const paso = document.getElementById('step-medidas');
+    if (!paso) return;
+    ['input', 'change', 'pointerup'].forEach(ev => paso.addEventListener(ev, actualizarBarraEnVivo));
+  });
 
   function selectTipo(tipo) {
     cfg.tipo = tipo;
@@ -379,6 +397,7 @@ const Wizard = (() => {
 
     try {
       preciosData = await Precios.getData();
+      cfg.valorM2 = await Precios.getValorM2(cfg.lin);
       const resultado = Calculos.calcular(cfg, preciosData);
       // Guardar para módulo de cotización
       window._lastCfg     = { ...cfg };
@@ -426,6 +445,7 @@ const Wizard = (() => {
     };
     try {
       preciosData = await Precios.getData();
+      cfg.valorM2 = await Precios.getValorM2(cfg.lin);
       const resultado = Calculos.calcular(cfg, preciosData);
       window._lastCfg     = { ...cfg };
       window._lastTotales = { ...resultado.totales };
@@ -461,6 +481,7 @@ const Wizard = (() => {
       { val: fmt(totales.aluminio),   lbl: 'Aluminio' },
       { val: fmt(totales.accesorios), lbl: 'Quincallería' },
       { val: totales.cristal > 0 ? fmt(totales.cristal) : 'S/V', lbl: 'Cristal' },
+      ...(totales.porM2 ? [{ val: `${totales.m2Producto.toFixed(2)} m² × ${fmt(totales.valorM2)}`, lbl: 'Precio por m²' }] : []),
       { val: fmt(totales.neto),   lbl: 'Total Neto' },
       { val: fmt(totales.conIva), lbl: `Total c/ IVA (${c.iva}%)` },
     ];
@@ -495,6 +516,7 @@ const Wizard = (() => {
       <tr><td colspan="6">Total Aluminio</td><td colspan="2" class="num">${fmt(totales.aluminio)}</td></tr>
       <tr><td colspan="6">Total Quincallería</td><td colspan="2" class="num">${fmt(totales.accesorios)}</td></tr>
       <tr><td colspan="6">Total Cristal / Vidrio</td><td colspan="2" class="num">${fmt(totales.cristal)}</td></tr>
+      ${totales.porM2 ? `<tr><td colspan="6">Precio por m² (${totales.m2Producto.toFixed(2)} m² × ${fmt(totales.valorM2)})</td><td colspan="2" class="num">${fmt(totales.neto)}</td></tr>` : ''}
       <tr><td colspan="6" style="font-weight:700;color:var(--accent)">TOTAL NETO</td>
           <td colspan="2" class="num" style="font-weight:700;color:var(--accent)">${fmt(totales.neto)}</td></tr>
       <tr><td colspan="6">IVA (${c.iva}%)</td><td colspan="2" class="num">${fmt(totales.iva)}</td></tr>
@@ -576,6 +598,7 @@ const Wizard = (() => {
 
     try {
       preciosData = await Precios.getData();
+      cfg.valorM2 = await Precios.getValorM2(cfg.lin);
       const resultado = Calculos.calcular(cfg, preciosData);
       window._lastCfg     = { ...cfg };
       window._lastTotales = { ...resultado.totales };
