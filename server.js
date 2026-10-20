@@ -105,7 +105,8 @@ async function save(key, file, data) {
 // GET all prices
 app.get('/api/precios', async (req, res) => {
   try {
-    res.json((await load('precios', PRICES_FILE)) || defaultPrices());
+    const data = await load('precios', PRICES_FILE);
+    res.json(data ? completarPrecios(data) : defaultPrices());
   } catch (e) {
     console.error('Error leyendo precios:', e);
     res.json(defaultPrices());
@@ -147,13 +148,27 @@ app.put('/api/lineas', async (req, res) => {
 // GET single price by code
 app.get('/api/precios/:codigo', async (req, res) => {
   try {
-    const data = (await load('precios', PRICES_FILE)) || defaultPrices();
+    const guardados = await load('precios', PRICES_FILE);
+    const data = guardados ? completarPrecios(guardados) : defaultPrices();
     const item = data.find(p => p.codigo === req.params.codigo);
     res.json(item || null);
   } catch (e) {
     res.json(null);
   }
 });
+
+function perfilesTresColores(base, descripcion, precio, peso) {
+  return [['M', 'Mate'], ['B', 'Bronce'], ['C', 'Champagne']].map(([suf, nombre]) => ({
+    codigo: base + suf, descripcion: `${descripcion} ${nombre}`, precio, medida: 'P', peso,
+  }));
+}
+
+// Agrega al final los códigos por defecto que no estén en la lista guardada,
+// sin tocar los precios que el usuario ya editó
+function completarPrecios(data) {
+  const existentes = new Set(data.map(p => p.codigo));
+  return [...data, ...defaultPrices().filter(p => !existentes.has(p.codigo))];
+}
 
 function defaultPrices() {
   return [
@@ -432,6 +447,14 @@ function defaultPrices() {
     { codigo: 'AL121512M', descripcion: '1512 Intermedio AM-12 Mate', precio: 3500, medida: 'P', peso: 0.50 },
     { codigo: 'AL121512B', descripcion: '1512 Intermedio AM-12 Bronce', precio: 3800, medida: 'P', peso: 0.50 },
     { codigo: 'AL121512C', descripcion: '1512 Intermedio AM-12 Champagne', precio: 3900, medida: 'P', peso: 0.50 },
+    // ===== PERFILES DE OPCIONES (cámara, palillos, 4 hojas) =====
+    ...perfilesTresColores('AL202029', '2029 Riel Superior Cámara AL-20', 5600, 0.50),
+    ...perfilesTresColores('AL202022', '2022 Palillo AL-20', 5600, 0.54),
+    ...perfilesTresColores('AL252516', '2516 Palillo AL-25', 5600, 0.65),
+    ...perfilesTresColores('AL252512', '2512 Perfil 4ª Hoja AL-25', 5600, 0.65),
+    ...perfilesTresColores('AL323204', '3204 Palillo Vertical AL-32', 5600, 0.65),
+    ...perfilesTresColores('AL323205', '3205 Palillo Horizontal AL-32', 5600, 0.65),
+    ...perfilesTresColores('AL424214', '4214 Perfil Cámara AL-42', 5600, 0.85),
   ];
 }
 
