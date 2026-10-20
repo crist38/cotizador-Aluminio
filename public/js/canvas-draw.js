@@ -361,39 +361,72 @@ const CanvasDraw = (() => {
     const isVaiv = cfg.lin && cfg.lin.includes('VAIVEN');
     const fw     = Math.max(8, w * 0.05);
 
+    // "Nº Hojas" en puertas: 0 = 1 hoja, >0 = 2 hojas
+    const nHojas = (parseInt(cfg.pave) || 0) > 0 ? 2 : 1;
+    const pala   = (parseInt(cfg.pala) || 0) > 0;
+
+    // Marco perimetral
     drawProfile(ctx, x, y, w, fw, ph);
     drawProfile(ctx, x, y + h - fw, w, fw, ph);
     drawProfile(ctx, x, y, fw, h, ph, true);
     drawProfile(ctx, x + w - fw, y, fw, h, ph, true);
-    drawGlass(ctx, x + fw, y + fw, w - fw * 2, h - fw * 2);
-    drawCenterLine(ctx, x + w / 2, y + fw, x + w / 2, y + h - fw);
 
-    // Perfil hoja interior
-    const hw = fw * 0.55;
-    drawProfile(ctx, x + fw, y + fw, w - fw * 2, hw, ph);
-    drawProfile(ctx, x + fw, y + h - fw - hw, w - fw * 2, hw, ph);
-    drawProfile(ctx, x + fw, y + fw, hw, h - fw * 2, ph, true);
-    drawProfile(ctx, x + w - fw - hw, y + fw, hw, h - fw * 2, ph, true);
+    const hw    = fw * 0.75;              // perfil de hoja
+    const gap   = nHojas === 2 ? 2 : 0;   // separación entre hojas
+    const innerW = w - fw * 2;
+    const leafW = (innerW - gap) / nHojas;
+    const leafY = y + fw;
+    const leafH = h - fw * 2;
 
-    if (isVaiv) {
-      ctx.fillStyle = CAD.dim;
-      ctx.font = '22px Inter';
-      ctx.textAlign = 'center';
-      ctx.fillText('⇄', x + w / 2, y + h / 2 + 8);
-    } else {
-      // Arco de apertura
+    for (let i = 0; i < nHojas; i++) {
+      const lx = x + fw + i * (leafW + gap);
+      // Lado de la manilla: hacia el encuentro entre hojas (o derecha si es 1 hoja)
+      const handleRight = nHojas === 1 || i === 0;
+
+      drawGlass(ctx, lx + hw, leafY + hw, leafW - hw * 2, leafH - hw * 2);
+      drawProfile(ctx, lx, leafY, leafW, hw, ph);
+      drawProfile(ctx, lx, leafY + leafH - hw * 1.6, leafW, hw * 1.6, ph); // zócalo
+      drawProfile(ctx, lx, leafY, hw, leafH, ph, true);
+      drawProfile(ctx, lx + leafW - hw, leafY, hw, leafH, ph, true);
+
+      if (pala) {
+        drawProfile(ctx, lx + hw, leafY + leafH * 0.5 - hw * 0.4, leafW - hw * 2, hw * 0.8, ph);
+      }
+
+      // Tirador vertical largo
       ctx.save();
-      ctx.strokeStyle = CAD.dim;
-      ctx.lineWidth = 0.8;
-      ctx.setLineDash([5, 4]);
-      ctx.beginPath();
-      ctx.arc(x + fw + hw, y + h - fw, w - fw * 2 - hw, -Math.PI / 2, 0);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      // Tirón de puerta
+      const tw = Math.max(3, leafW * 0.035);
+      const tx = handleRight ? lx + leafW - hw - tw - 5 : lx + hw + 5;
       ctx.fillStyle = ph.shine;
-      ctx.fillRect(x + w - fw - hw - 4, y + h * 0.4, 3, h * 0.2);
+      ctx.strokeStyle = CAD.dim;
+      ctx.lineWidth = 0.6;
+      ctx.fillRect(tx, leafY + leafH * 0.3, tw, leafH * 0.32);
+      ctx.strokeRect(tx, leafY + leafH * 0.3, tw, leafH * 0.32);
+
+      if (isVaiv) {
+        // Indicador de vaivén (abre hacia ambos lados)
+        ctx.fillStyle = CAD.dim;
+        ctx.font = `${Math.max(12, Math.min(22, leafW * 0.18))}px Inter`;
+        ctx.textAlign = 'center';
+        ctx.fillText('⇄', lx + leafW / 2, leafY + leafH / 2 + 7);
+      } else {
+        // Arco de apertura desde el lado de la bisagra
+        const hingeX = handleRight ? lx + hw : lx + leafW - hw;
+        const r = leafW - hw * 2;
+        ctx.strokeStyle = CAD.dim;
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        if (handleRight) ctx.arc(hingeX, leafY + leafH - hw, r, -Math.PI / 2, 0);
+        else ctx.arc(hingeX, leafY + leafH - hw, r, Math.PI, Math.PI * 1.5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       ctx.restore();
+    }
+
+    if (nHojas === 2) {
+      drawCenterLine(ctx, x + w / 2, y + fw, x + w / 2, y + h - fw);
     }
   }
 
