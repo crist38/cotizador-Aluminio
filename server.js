@@ -9,14 +9,24 @@ const LINEAS_FILE = path.join(__dirname, 'data', 'lineas.json');
 
 // Redis (Upstash) para entornos sin disco escribible como Vercel.
 // Si no hay variables configuradas se usan los archivos JSON locales.
-const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Acepta cualquier prefijo (KV_, STORAGE_, UPSTASH_REDIS_...): busca *_REST_API_URL / *_REST_URL
+// y su *_TOKEN correspondiente (no el de solo lectura).
+function findRedisEnv() {
+  const env = process.env;
+  for (const key of Object.keys(env)) {
+    const m = key.match(/^(.*_REST(?:_API)?)_URL$/);
+    if (m && env[`${m[1]}_TOKEN`]) return { url: env[key], token: env[`${m[1]}_TOKEN`] };
+  }
+  return { url: null, token: null };
+}
+const { url: REDIS_URL, token: REDIS_TOKEN } = findRedisEnv();
 const useRedis = Boolean(REDIS_URL && REDIS_TOKEN);
+const IS_VERCEL = Boolean(process.env.VERCEL);
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-if (!useRedis) {
+if (!useRedis && !IS_VERCEL) {
   // Ensure data directory exists
   if (!fs.existsSync(path.join(__dirname, 'data'))) {
     fs.mkdirSync(path.join(__dirname, 'data'));
@@ -60,6 +70,10 @@ async function load(key, file) {
 async function save(key, file, data) {
   if (useRedis) {
     await redis(['SET', key, JSON.stringify(data)]);
+  } else if (IS_VERCEL) {
+    // Solo nombres de variables relacionadas, nunca valores
+    const vistas = Object.keys(process.env).filter(k => /REDIS|KV|STORAGE|UPSTASH/i.test(k));
+    throw new Error(`Redis no configurado en Vercel. Variables encontradas: ${vistas.join(', ') || 'ninguna'}. Conecte Upstash Redis al proyecto y haga Redeploy.`);
   } else {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
   }
