@@ -18,7 +18,7 @@ const Calculos = (() => {
       alto:   parseFloat(cfg.alto)   || 0,
       cant:   parseInt(cfg.cant)     || 1,
       porce:  parseFloat(cfg.porce)  || 100,
-      iva:    parseFloat(cfg.iva)    || 19,
+      iva:    isNaN(parseFloat(cfg.iva)) ? 19 : parseFloat(cfg.iva), // 0 = exento
       coloal: cfg.coloal  || 'M',
       vidi:   cfg.vidi    || 'VD4MM',
       hoja:   cfg.hoja    || 2,
@@ -34,6 +34,7 @@ const Calculos = (() => {
       fondo:  cfg.fondo   || 0,
       jun:    cfg.jun     || 'ALCO5051',
       bisa:   cfg.bisa    || 3,
+      quicio: cfg.quicio  || 'HD',
       demas:  cfg.demas   || '',
       lin:    cfg.lin     || 'AL15',
       rotu:   cfg.rotu    || '',
@@ -55,11 +56,9 @@ const Calculos = (() => {
 
   function addItem(cod, altM, anchM, override) {
     // Build final code with color suffix for aluminium profiles
+    // La silicona (ALSILICOM / ALSILICOB) ya viene con el color en el código
     let c = cod;
-    if (c.startsWith('AL') && !c.startsWith('ALSI') && !c.startsWith('ALCO') && !c.startsWith('ALTR') && !c.startsWith('ALTC') && !c.startsWith('ALTU') && !c.startsWith('ALTA')) {
-      // Pure aluminum profile: add color
-      c = (c + state.coloal).substring(0, 10);
-    } else if (c.startsWith('ALSI') || c.startsWith('ALCO') || c.startsWith('ALTR') || c.startsWith('ALTC') || c.startsWith('ALTU') || c.startsWith('ALTA')) {
+    if (c.startsWith('AL') && !c.startsWith('ALSI')) {
       c = (c + state.coloal).substring(0, 10);
     }
     const p = precio(c);
@@ -95,6 +94,7 @@ const Calculos = (() => {
       unidad: unidadLabel,
       precio: pr,
       total: tot,
+      peso: pKg,
       medida: medida,
       tipo: c.startsWith('AL') && !c.startsWith('ALS') ? 'aluminio' : (medida === 'A' ? 'vidrio' : 'accesorio'),
     });
@@ -120,7 +120,7 @@ const Calculos = (() => {
     addItem('SOVAFEL5', (alto * 6) + (ancho * 4), 0);          // Felpa
     addItem(coloal === 'M' ? 'SOTB83/4MB' : 'SOTB83/4BB', hoja * 4, 0); // Roscalata hojas
     addItem(coloal === 'M' ? 'SOTB81/2MB' : 'SOTB81/2BB', 2, 0);         // Roscalata marco inf
-    addItem(coloal === 'M' ? 'SOTP81/2MP' : 'SOTP81/2BP', 2, 0);         // Roscalata marco sup
+    addItem(coloal === 'M' ? 'SOTP81/2MP' : 'SOTB81/2BP', 2, 0);         // Roscalata marco sup
     addItem(coloal === 'M' ? 'SOTB61/4MB' : 'SOTB61/4BB', (hoja - fija) * 4 + fija * 2, 0); // Roscalata pestillo
     addItem('SOCRL-5000', (hoja - fija) * 2, 0);               // Carros
     addItem(coloal === 'M' ? 'SOPS5000M' : 'SOPS5000B', hoja - fija, 0); // Pestillos
@@ -376,7 +376,7 @@ const Calculos = (() => {
     addItem('ALTR8016', alto * 2, ancho);   // Marco vaivén 4080
     addItem('AL353507', pave > 0 ? 6.05 * 2 : 6.05, 0); // Tapa porta felpa
     addItem('AL455031', 6.05, 0);           // Talonera
-    addItem(hoja === -1 ? 'SOVAQUI/ME' : 'SOVAQUI/HD', pave > 0 ? 2 : 1, 0); // Quicio
+    addItem(state.quicio === 'ME' ? 'SOVAQUI/ME' : 'SOVAQUI/HD', pave > 0 ? 2 : 1, 0); // Quicio
     addItem(coloal === 'M' ? 'SOTIAM35M' : 'SOTIAM35B', pave > 0 ? 4 : 2, 0); // Tiradores
     addItem(coloal === 'M' ? 'SOCE1080MC' : 'SOCE1080BC', pave > 0 ? 2 : 1, 0); // Chapa
     addItem('SOESEAM-35', (pala * 2) + (pave * 4) + 4, 0);
@@ -427,7 +427,7 @@ const Calculos = (() => {
   function puertav() {
     const { ancho, alto, pala, pave, coloal, vidi, hoja } = state;
     addItem('ALTR8016', (alto * 2) + (alto * pave), ancho); // Marco 4080
-    addItem(hoja === -1 ? 'SOVAQUI/ME' : 'SOVAQUI/HD', pave > 0 ? 2 : 1, 0);
+    addItem(state.quicio === 'ME' ? 'SOVAQUI/ME' : 'SOVAQUI/HD', pave > 0 ? 2 : 1, 0);
     addItem(coloal === 'M' ? 'SOCE1080MC' : 'SOCE1080BC', pave > 0 ? 2 : 1, 0);
     addItem('SOES5050M', 12 + (pala * 4) + (pave * 4), 0);
     addItem('SOTB8X1-MB', (12 + pala * 4 + pave * 4) * 2, 0);

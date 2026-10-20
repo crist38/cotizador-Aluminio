@@ -8,6 +8,8 @@ const Cotizacion = (() => {
   let items = [];
   // Ventana que se está editando (aún no agregada) para la barra de metraje
   let actual = null;
+  // Ids únicos aunque se agreguen dos ítems en el mismo milisegundo
+  let nextId = Date.now();
   let fmtCLP = v => new Intl.NumberFormat('es-CL', {
     style: 'currency', currency: 'CLP', maximumFractionDigits: 0
   }).format(v);
@@ -83,7 +85,7 @@ const Cotizacion = (() => {
     const altoMm  = cfg.altoMm  || Math.round(cfg.alto  * 1000);
 
     const item = {
-      id:          Date.now(),
+      id:          ++nextId,
       descripcion: cfg.rotu || 'Producto de Aluminio',
       detalle:     `${anchoMm} × ${altoMm} mm · ${colorNom} · ${vidrioNom}`,
       cantidad:    cfg.cant || 1,
@@ -141,7 +143,7 @@ const Cotizacion = (() => {
     const altoMm  = cfg.altoMm  || Math.round(cfg.alto  * 1000);
 
     const item = {
-      id:          Date.now(),
+      id:          ++nextId,
       descripcion: cfg.rotu || 'Producto de Aluminio',
       detalle:     `${anchoMm} × ${altoMm} mm · ${colorNom} · ${vidrioNom}${descExtra ? ' · ' + descExtra : ''}`,
       cantidad:    cfg.cant || 1,
@@ -266,6 +268,9 @@ const Cotizacion = (() => {
     const totalNeto  = items.reduce((s, i) => s + i.neto, 0);
     const totalIva   = items.reduce((s, i) => s + i.iva, 0);
     const totalFinal = items.reduce((s, i) => s + i.precio, 0);
+    // % IVA real de los ítems (si todos usan el mismo)
+    const ivas = [...new Set(items.map(i => i.cfg?.iva ?? 19))];
+    const ivaLabel = ivas.length === 1 ? `IVA (${ivas[0]}%)` : 'IVA';
 
     // Filas de la tabla principal
     const filasItems = items.map((item, idx) => `
@@ -448,7 +453,7 @@ const Cotizacion = (() => {
   <div class="totales-wrap">
     <div class="totales-box">
       <div class="tot-row subtotal"><span class="tot-lbl">Subtotal (Neto)</span><span class="tot-val">${fmtCLP(totalNeto)}</span></div>
-      <div class="tot-row iva"><span class="tot-lbl">IVA (19%)</span><span class="tot-val">${fmtCLP(totalIva)}</span></div>
+      <div class="tot-row iva"><span class="tot-lbl">${ivaLabel}</span><span class="tot-val">${fmtCLP(totalIva)}</span></div>
       <div class="tot-row final"><span class="tot-lbl">TOTAL A PAGAR</span><span class="tot-val">${fmtCLP(totalFinal)}</span></div>
     </div>
   </div>
@@ -528,6 +533,10 @@ const Cotizacion = (() => {
     });
     const html = _htmlCotizacion();
     const pw = window.open('', '_blank', 'width=980,height=780');
+    if (!pw) {
+      App.toast('El navegador bloqueó la ventana de impresión. Permita ventanas emergentes.', 'error');
+      return;
+    }
     pw.document.write(html);
     pw.document.close();
   }

@@ -48,7 +48,9 @@ const App = (() => {
     }
     // Redibuja canvas en tiempo real
     if (typeof CanvasDraw !== 'undefined') {
-      const cfg = window._lastCfg || { tipo: 'ventana-corr' };
+      // Usar el producto que se está editando, no el último calculado
+      const actual = typeof Wizard !== 'undefined' ? Wizard.getCfg() : null;
+      const cfg = (actual && actual.tipo) ? actual : (window._lastCfg || { tipo: 'ventana-corr' });
       CanvasDraw.drawPreview(cfg);
       const resCanvas = document.getElementById('resultado-canvas');
       if (resCanvas && document.getElementById('step-resultado').classList.contains('active')) {
@@ -250,6 +252,10 @@ const Imprimir = (() => {
 
     const html = _buildPrintHTML(titulo, obra, fecha, chips, _getItemsHTML(), _getFootHTML());
     const pw = window.open('', '_blank', 'width=960,height=720');
+    if (!pw) {
+      App.toast('El navegador bloqueó la ventana de impresión. Permita ventanas emergentes.', 'error');
+      return;
+    }
     pw.document.write(html);
     pw.document.close();
   }

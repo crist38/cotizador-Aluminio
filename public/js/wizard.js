@@ -84,7 +84,10 @@ const Wizard = (() => {
     'puerta': [
       { id: 'pave', label: 'Nº Hojas (0=1 hoja, 2=2 hojas)', type: 'number', default: 0 },
       { id: 'pala', label: 'Palillo (0=No, 1=Sí)',            type: 'number', default: 0 },
-      { id: 'bisa', label: 'Nº Bisagras',                     type: 'number', default: 3 },
+      // Las puertas vaivén no llevan bisagras: giran sobre un quicio
+      { id: 'bisa', label: 'Nº Bisagras',                     type: 'number', default: 3, excepto: 'VAIVEN' },
+      { id: 'quicio', label: 'Tipo de Quicio', type: 'select',
+        opts: ['Hidráulico', 'Mecánico'], vals: ['HD', 'ME'], solo: 'VAIVEN' },
     ],
     'pano-fijo': [
       { id: 'pave', label: 'Palillos verticales (cant.)',   type: 'number', default: 0 },
@@ -257,8 +260,7 @@ const Wizard = (() => {
     document.getElementById('medidas-title').textContent = label;
 
     // Rellenar opciones extra dentro del paso de medidas
-    const opKey = MENU[tipo].opciones;
-    const fields = OPCIONES_FORMS[opKey] || [];
+    const fields = camposOpciones();
     const form = document.getElementById('opciones-form');
     const secTitle = document.getElementById('opciones-dinamicas');
     form.innerHTML = '';
@@ -326,10 +328,17 @@ const Wizard = (() => {
     showStep('step-medidas');
   }
 
+  // Campos de opciones que aplican a la línea elegida (solo / excepto filtran por cfg.lin)
+  function camposOpciones() {
+    const opKey = MENU[cfg.tipo]?.opciones;
+    const lin = cfg.lin || '';
+    return (OPCIONES_FORMS[opKey] || []).filter(f =>
+      (!f.solo || lin.includes(f.solo)) && (!f.excepto || !lin.includes(f.excepto))
+    );
+  }
+
   function _readOpciones() {
-    const opKey = MENU[cfg.tipo].opciones;
-    const fields = OPCIONES_FORMS[opKey] || [];
-    fields.forEach(f => {
+    camposOpciones().forEach(f => {
       const el = document.getElementById('opt-' + f.id);
       if (!el) return;
       if (f.type === 'select') {
@@ -344,6 +353,12 @@ const Wizard = (() => {
     });
   }
 
+  // IVA del formulario; vacío = 19, pero 0 (exento) es válido
+  function leerIva() {
+    const v = parseFloat(document.getElementById('inp-iva')?.value);
+    return isNaN(v) ? 19 : v;
+  }
+
   async function calcular() {
     const obra    = document.getElementById('inp-obra').value.trim();
     if (!obra) {
@@ -355,7 +370,7 @@ const Wizard = (() => {
     const altoMm  = parseFloat(document.getElementById('inp-alto').value);
     const cant    = parseInt(document.getElementById('inp-cant').value) || 1;
     const porce   = parseFloat(document.getElementById('inp-porce').value) || 100;
-    const iva     = parseFloat(document.getElementById('inp-iva').value) || 19;
+    const iva     = leerIva();
     const vidi    = document.getElementById('sel-vidrio').value;
     const coloal  = document.querySelector('input[name="color"]:checked')?.value || 'M';
 
@@ -426,7 +441,7 @@ const Wizard = (() => {
     // Reutiliza la lógica de calcular() pero en vez de ir a resultado, abre el modal
     const cant    = parseInt(document.getElementById('inp-cant').value) || 1;
     const porce   = parseFloat(document.getElementById('inp-porce').value) || 100;
-    const iva     = parseFloat(document.getElementById('inp-iva').value) || 19;
+    const iva     = leerIva();
     const vidi    = document.getElementById('sel-vidrio').value;
     const coloal  = document.querySelector('input[name="color"]:checked')?.value || 'M';
     const ancho   = anchoMm / 1000;
@@ -565,7 +580,7 @@ const Wizard = (() => {
     const altoMm  = parseFloat(document.getElementById('inp-alto')?.value);
     const cant    = parseInt(document.getElementById('inp-cant')?.value) || 1;
     const porce   = parseFloat(document.getElementById('inp-porce')?.value) || 100;
-    const iva     = parseFloat(document.getElementById('inp-iva')?.value) || 19;
+    const iva     = leerIva();
     const vidi    = document.getElementById('sel-vidrio')?.value || 'VD4MM';
     const coloal  = document.querySelector('input[name="color"]:checked')?.value || 'M';
 
