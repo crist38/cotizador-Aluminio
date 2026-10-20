@@ -7,63 +7,110 @@ const PORT = 3000;
 const PRICES_FILE = path.join(__dirname, 'data', 'precios.json');
 const LINEAS_FILE = path.join(__dirname, 'data', 'lineas.json');
 
-app.use(express.json());
+// Redis (Upstash) para entornos sin disco escribible como Vercel.
+// Si no hay variables configuradas se usan los archivos JSON locales.
+const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const useRedis = Boolean(REDIS_URL && REDIS_TOKEN);
+
+app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Ensure data directory exists
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-  fs.mkdirSync(path.join(__dirname, 'data'));
+if (!useRedis) {
+  // Ensure data directory exists
+  if (!fs.existsSync(path.join(__dirname, 'data'))) {
+    fs.mkdirSync(path.join(__dirname, 'data'));
+  }
+
+  // Initialize default prices if not exists
+  if (!fs.existsSync(PRICES_FILE)) {
+    fs.writeFileSync(PRICES_FILE, JSON.stringify(defaultPrices(), null, 2));
+  }
 }
 
-// Initialize default prices if not exists
-if (!fs.existsSync(PRICES_FILE)) {
-  fs.writeFileSync(PRICES_FILE, JSON.stringify(defaultPrices(), null, 2));
+async function redis(command) {
+  const res = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+    body: JSON.stringify(command),
+  });
+  const json = await res.json();
+  if (!res.ok || json.error) throw new Error(json.error || `Redis HTTP ${res.status}`);
+  return json.result;
+}
+
+function readFileJSON(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    return null;
+  }
+}
+
+async function load(key, file) {
+  if (useRedis) {
+    const raw = await redis(['GET', key]);
+    if (raw) return JSON.parse(raw);
+    // Sin datos aún en Redis: usar el archivo incluido en el despliegue
+    return readFileJSON(file);
+  }
+  return readFileJSON(file);
+}
+
+async function save(key, file, data) {
+  if (useRedis) {
+    await redis(['SET', key, JSON.stringify(data)]);
+  } else {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  }
 }
 
 // GET all prices
-app.get('/api/precios', (req, res) => {
+app.get('/api/precios', async (req, res) => {
   try {
-    const data = JSON.parse(fs.readFileSync(PRICES_FILE, 'utf8'));
-    res.json(data);
+    res.json((await load('precios', PRICES_FILE)) || defaultPrices());
   } catch (e) {
+    console.error('Error leyendo precios:', e);
     res.json(defaultPrices());
   }
 });
 
 // PUT update prices
-app.put('/api/precios', (req, res) => {
+app.put('/api/precios', async (req, res) => {
   try {
-    fs.writeFileSync(PRICES_FILE, JSON.stringify(req.body, null, 2));
+    await save('precios', PRICES_FILE, req.body);
     res.json({ ok: true });
   } catch (e) {
+    console.error('Error guardando precios:', e);
     res.status(500).json({ error: e.message });
   }
 });
 
 // GET valor m² por línea
-app.get('/api/lineas', (req, res) => {
+app.get('/api/lineas', async (req, res) => {
   try {
-    const data = JSON.parse(fs.readFileSync(LINEAS_FILE, 'utf8'));
-    res.json(data);
+    res.json((await load('lineas', LINEAS_FILE)) || []);
   } catch (e) {
+    console.error('Error leyendo líneas:', e);
     res.json([]);
   }
 });
 
 // PUT update valor m² por línea
-app.put('/api/lineas', (req, res) => {
+app.put('/api/lineas', async (req, res) => {
   try {
-    fs.writeFileSync(LINEAS_FILE, JSON.stringify(req.body, null, 2));
+    await save('lineas', LINEAS_FILE, req.body);
     res.json({ ok: true });
   } catch (e) {
+    console.error('Error guardando líneas:', e);
     res.status(500).json({ error: e.message });
   }
 });
 
 // GET single price by code
-app.get('/api/precios/:codigo', (req, res) => {
+app.get('/api/precios/:codigo', async (req, res) => {
   try {
-    const data = JSON.parse(fs.readFileSync(PRICES_FILE, 'utf8'));
+    const data = (await load('precios', PRICES_FILE)) || defaultPrices();
     const item = data.find(p => p.codigo === req.params.codigo);
     res.json(item || null);
   } catch (e) {

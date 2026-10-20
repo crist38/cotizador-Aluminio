@@ -159,7 +159,10 @@ const Precios = (() => {
       if (res.ok && resLineas.ok) {
         App.toast('✅ Precios guardados correctamente', 'success');
       } else {
-        App.toast('Error al guardar precios', 'error');
+        const fallo = !res.ok ? res : resLineas;
+        const detalle = await fallo.json().catch(() => ({}));
+        console.error('Error al guardar:', fallo.url, fallo.status, detalle);
+        App.toast(`Error al guardar precios${detalle.error ? ': ' + detalle.error : ''}`, 'error');
       }
     } catch (e) {
       App.toast('Error de conexión', 'error');
