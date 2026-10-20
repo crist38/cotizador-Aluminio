@@ -7,21 +7,40 @@ const PORT = 3000;
 const PRICES_FILE = path.join(__dirname, 'data', 'precios.json');
 const LINEAS_FILE = path.join(__dirname, 'data', 'lineas.json');
 
-// Redis (Upstash) para entornos sin disco escribible como Vercel.
+// Redis para entornos sin disco escribible como Vercel.
 // Si no hay variables configuradas se usan los archivos JSON locales.
-// Acepta cualquier prefijo (KV_, STORAGE_, UPSTASH_REDIS_...): busca *_REST_API_URL / *_REST_URL
-// y su *_TOKEN correspondiente (no el de solo lectura).
+// Acepta cualquier prefijo (KV_, STORAGE_, UPSTASH_REDIS_...):
+//  - API REST (Upstash): *_REST_API_URL / *_REST_URL + su *_TOKEN (no el de solo lectura)
+//  - Conexión directa: cualquier variable *URL con valor redis:// o rediss://
 function findRedisEnv() {
   const env = process.env;
   for (const key of Object.keys(env)) {
     const m = key.match(/^(.*_REST(?:_API)?)_URL$/);
     if (m && env[`${m[1]}_TOKEN`]) return { url: env[key], token: env[`${m[1]}_TOKEN`] };
   }
+  for (const key of Object.keys(env)) {
+    if (/URL$/.test(key) && /^rediss?:\/\//.test(env[key] || '')) return { url: env[key], token: null };
+  }
   return { url: null, token: null };
 }
 const { url: REDIS_URL, token: REDIS_TOKEN } = findRedisEnv();
-const useRedis = Boolean(REDIS_URL && REDIS_TOKEN);
+const useRedis = Boolean(REDIS_URL);
 const IS_VERCEL = Boolean(process.env.VERCEL);
+
+// Cliente TCP reutilizado entre invocaciones de la función
+let redisClientPromise = null;
+function getRedisClient() {
+  if (!redisClientPromise) {
+    const { createClient } = require('redis');
+    const client = createClient({ url: REDIS_URL });
+    client.on('error', e => console.error('Redis:', e.message));
+    redisClientPromise = client.connect().then(() => client).catch(e => {
+      redisClientPromise = null;
+      throw e;
+    });
+  }
+  return redisClientPromise;
+}
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -39,6 +58,10 @@ if (!useRedis && !IS_VERCEL) {
 }
 
 async function redis(command) {
+  if (!REDIS_TOKEN) {
+    const client = await getRedisClient();
+    return client.sendCommand(command);
+  }
   const res = await fetch(REDIS_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
@@ -73,7 +96,7 @@ async function save(key, file, data) {
   } else if (IS_VERCEL) {
     // Solo nombres de variables relacionadas, nunca valores
     const vistas = Object.keys(process.env).filter(k => /REDIS|KV|STORAGE|UPSTASH/i.test(k));
-    throw new Error(`Redis no configurado en Vercel. Variables encontradas: ${vistas.join(', ') || 'ninguna'}. Conecte Upstash Redis al proyecto y haga Redeploy.`);
+    throw new Error(`Redis no configurado en Vercel. Variables encontradas: ${vistas.join(', ') || 'ninguna'}. Conecte una base Redis al proyecto y haga Redeploy.`);
   } else {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
   }
