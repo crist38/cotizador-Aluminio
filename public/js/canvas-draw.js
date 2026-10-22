@@ -497,12 +497,51 @@ const CanvasDraw = (() => {
   function drawPreview(cfg) {
     const canvas = document.getElementById('preview-canvas');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const anchoMm = parseFloat(document.getElementById('inp-ancho')?.value) || 1200;
+    const altoMm  = parseFloat(document.getElementById('inp-alto')?.value)  || 1000;
+    const { ox, oy, dw, dh } = latestBox = dibujarEsquema(canvas, cfg, anchoMm, altoMm);
     const W = canvas.width;
     const H = canvas.height;
 
-    const anchoMm = parseFloat(document.getElementById('inp-ancho')?.value) || 1200;
-    const altoMm  = parseFloat(document.getElementById('inp-alto')?.value)  || 1000;
+    // Posicionar dinámicamente los inputs sobre las cotas (flechas de medida)
+    const cadWidthInput = document.getElementById('cad-width-input');
+    const cadHeightInput = document.getElementById('cad-height-input');
+
+    if (cadWidthInput) {
+      const wPct = ((ox + dw / 2) / W) * 100;
+      const hPct = ((oy + dh + 20) / H) * 100;
+      cadWidthInput.style.left = `${wPct}%`;
+      cadWidthInput.style.top = `${hPct}%`;
+      cadWidthInput.style.bottom = 'auto';
+      cadWidthInput.style.transform = 'translate(-50%, -50%)';
+    }
+
+    if (cadHeightInput) {
+      const wPct = ((ox + dw + 20) / W) * 100;
+      const hPct = ((oy + dh / 2) / H) * 100;
+      cadHeightInput.style.left = `${wPct}%`;
+      cadHeightInput.style.top = `${hPct}%`;
+      cadHeightInput.style.right = 'auto';
+      cadHeightInput.style.transform = 'translate(-50%, -50%)';
+    }
+  }
+
+  // ── Esquema de un ítem guardado como imagen (sin tocar el canvas del wizard) ──
+  function imagenEsquema(cfg) {
+    const canvas = document.createElement('canvas');
+    const ref = document.getElementById('preview-canvas');
+    canvas.width  = ref?.width  || 760;
+    canvas.height = ref?.height || 420;
+    const anchoMm = cfg.anchoMm || Math.round((cfg.ancho || 1.2) * 1000);
+    const altoMm  = cfg.altoMm  || Math.round((cfg.alto  || 1.0) * 1000);
+    dibujarEsquema(canvas, cfg, anchoMm, altoMm);
+    return canvas.toDataURL('image/png');
+  }
+
+  function dibujarEsquema(canvas, cfg, anchoMm, altoMm) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
     const ancho   = anchoMm / 1000;
     const alto    = altoMm  / 1000;
 
@@ -530,29 +569,7 @@ const CanvasDraw = (() => {
     drawDimension(ctx, ox, oy + dh, ox + dw, oy + dh, `${Math.round(anchoMm)} mm`, false);
     drawDimension(ctx, ox + dw, oy, ox + dw, oy + dh, `${Math.round(altoMm)} mm`, false);
     drawStamp(ctx, W, H, cfg, cfg.rotu);
-    latestBox = { ox, oy, dw, dh, ratio, W, H, anchoMm, altoMm };
-
-    // Posicionar dinámicamente los inputs sobre las cotas (flechas de medida)
-    const cadWidthInput = document.getElementById('cad-width-input');
-    const cadHeightInput = document.getElementById('cad-height-input');
-    
-    if (cadWidthInput) {
-      const wPct = ((ox + dw / 2) / W) * 100;
-      const hPct = ((oy + dh + 20) / H) * 100;
-      cadWidthInput.style.left = `${wPct}%`;
-      cadWidthInput.style.top = `${hPct}%`;
-      cadWidthInput.style.bottom = 'auto';
-      cadWidthInput.style.transform = 'translate(-50%, -50%)';
-    }
-    
-    if (cadHeightInput) {
-      const wPct = ((ox + dw + 20) / W) * 100;
-      const hPct = ((oy + dh / 2) / H) * 100;
-      cadHeightInput.style.left = `${wPct}%`;
-      cadHeightInput.style.top = `${hPct}%`;
-      cadHeightInput.style.right = 'auto';
-      cadHeightInput.style.transform = 'translate(-50%, -50%)';
-    }
+    return { ox, oy, dw, dh, ratio, W, H, anchoMm, altoMm };
   }
 
   // ── Dibujar resultado ──
@@ -608,5 +625,5 @@ const CanvasDraw = (() => {
     drawStamp(ctx, W, H, cfg, cfg.rotu);
   }
 
-  return { drawPreview, drawResult, getLatestBox: () => latestBox };
+  return { drawPreview, drawResult, imagenEsquema, getLatestBox: () => latestBox };
 })();

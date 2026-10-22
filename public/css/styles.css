@@ -1591,6 +1591,54 @@ body.light-theme .cot-table tbody tr:hover {
   padding: 0 1.25rem 0.6rem;
 }
 
+/* ── Presupuestos guardados ── */
+.cot-presup-label {
+  margin-left: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.presup-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.presup-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.presup-row.activo {
+  border-color: var(--border-bright);
+  background: var(--accent-glow);
+}
+
+.presup-info { flex: 1; min-width: 0; }
+.presup-folio { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--accent-light); }
+.presup-cliente { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.presup-meta { font-size: 0.76rem; color: var(--text-muted); }
+.presup-total { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+.presup-acciones { display: flex; align-items: center; gap: 0.25rem; }
+
+.presup-vacio {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+@media (max-width: 600px) {
+  .presup-row { flex-wrap: wrap; }
+  .presup-total { order: 3; }
+}
+
 .cot-table .cot-edit-input {
   width: 110px;
   padding: 0.3rem 0.5rem;

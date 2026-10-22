@@ -145,6 +145,138 @@ app.put('/api/lineas', async (req, res) => {
   }
 });
 
+// ── Presupuestos guardados ──
+// Redis: 'presupuestos:seq' (correlativo), 'presupuestos:idx' (hash id → resumen) y
+// 'presupuesto:<id>' (documento completo). Local: un solo archivo data/presupuestos.json.
+const PRESUP_FILE = path.join(__dirname, 'data', 'presupuestos.json');
+
+function hashAObjeto(raw) {
+  if (!raw) return {};
+  if (!Array.isArray(raw)) return raw;
+  const obj = {};
+  for (let i = 0; i < raw.length; i += 2) obj[raw[i]] = raw[i + 1];
+  return obj;
+}
+
+function presupLocal() {
+  return readFileJSON(PRESUP_FILE) || { seq: 0, lista: {} };
+}
+
+function presupLocalGuardar(db) {
+  if (IS_VERCEL) return save('presupuestos', PRESUP_FILE, db); // lanza el error de Redis no configurado
+  fs.writeFileSync(PRESUP_FILE, JSON.stringify(db, null, 2));
+}
+
+function resumenPresupuesto(p) {
+  return {
+    id: p.id, folio: p.folio, cliente: p.cliente?.nombre || '',
+    creado: p.creado, actualizado: p.actualizado,
+    total: p.items.reduce((s, i) => s + (Number(i.precio) || 0), 0),
+    nItems: p.items.length,
+  };
+}
+
+// Valida el cuerpo y quita las imágenes (los esquemas se redibujan al abrir)
+function normalizarPresupuesto(body) {
+  if (!body || !Array.isArray(body.items) || body.items.length === 0) {
+    throw Object.assign(new Error('El presupuesto debe tener al menos un ítem'), { status: 400 });
+  }
+  return {
+    cliente: body.cliente || {},
+    items: body.items.map(({ imagen, ...resto }) => resto),
+  };
+}
+
+async function siguienteSeq() {
+  if (useRedis) return Number(await redis(['INCR', 'presupuestos:seq']));
+  const db = presupLocal();
+  db.seq = (db.seq || 0) + 1;
+  await presupLocalGuardar(db);
+  return db.seq;
+}
+
+async function leerPresupuesto(id) {
+  if (useRedis) {
+    const raw = await redis(['GET', `presupuesto:${id}`]);
+    return raw ? JSON.parse(raw) : null;
+  }
+  return presupLocal().lista[id] || null;
+}
+
+async function escribirPresupuesto(p) {
+  if (useRedis) {
+    await redis(['SET', `presupuesto:${p.id}`, JSON.stringify(p)]);
+    await redis(['HSET', 'presupuestos:idx', p.id, JSON.stringify(resumenPresupuesto(p))]);
+    return;
+  }
+  const db = presupLocal();
+  db.lista[p.id] = p;
+  await presupLocalGuardar(db);
+}
+
+function errorRespuesta(res, e, contexto) {
+  console.error(contexto, e);
+  res.status(e.status || 500).json({ error: e.message });
+}
+
+app.get('/api/presupuestos', async (req, res) => {
+  try {
+    const lista = useRedis
+      ? Object.values(hashAObjeto(await redis(['HGETALL', 'presupuestos:idx']))).map(v => JSON.parse(v))
+      : Object.values(presupLocal().lista).map(resumenPresupuesto);
+    lista.sort((a, b) => String(b.actualizado).localeCompare(String(a.actualizado)));
+    res.json(lista);
+  } catch (e) { errorRespuesta(res, e, 'Error listando presupuestos:'); }
+});
+
+app.get('/api/presupuestos/:id', async (req, res) => {
+  try {
+    const p = await leerPresupuesto(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Presupuesto no encontrado' });
+    res.json(p);
+  } catch (e) { errorRespuesta(res, e, 'Error leyendo presupuesto:'); }
+});
+
+app.post('/api/presupuestos', async (req, res) => {
+  try {
+    const datos = normalizarPresupuesto(req.body);
+    const seq = await siguienteSeq();
+    const ahora = new Date().toISOString();
+    const p = {
+      id: String(seq),
+      folio: `COT-${new Date().getFullYear()}-${String(seq).padStart(4, '0')}`,
+      creado: ahora, actualizado: ahora, ...datos,
+    };
+    await escribirPresupuesto(p);
+    res.json(resumenPresupuesto(p));
+  } catch (e) { errorRespuesta(res, e, 'Error guardando presupuesto:'); }
+});
+
+app.put('/api/presupuestos/:id', async (req, res) => {
+  try {
+    const previo = await leerPresupuesto(req.params.id);
+    if (!previo) return res.status(404).json({ error: 'Presupuesto no encontrado' });
+    const p = { ...previo, ...normalizarPresupuesto(req.body), actualizado: new Date().toISOString() };
+    await escribirPresupuesto(p);
+    res.json(resumenPresupuesto(p));
+  } catch (e) { errorRespuesta(res, e, 'Error actualizando presupuesto:'); }
+});
+
+app.delete('/api/presupuestos/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (useRedis) {
+      await redis(['DEL', `presupuesto:${id}`]);
+      await redis(['HDEL', 'presupuestos:idx', id]);
+    } else {
+      const db = presupLocal();
+      delete db.lista[id];
+      await presupLocalGuardar(db);
+    }
+    res.json({ ok: true });
+  } catch (e) { errorRespuesta(res, e, 'Error eliminando presupuesto:'); }
+});
+
 // GET single price by code
 app.get('/api/precios/:codigo', async (req, res) => {
   try {

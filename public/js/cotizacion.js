@@ -10,6 +10,8 @@ const Cotizacion = (() => {
   let actual = null;
   // Ids únicos aunque se agreguen dos ítems en el mismo milisegundo
   let nextId = Date.now();
+  // Presupuesto guardado que se está editando ({ id, folio, cliente }) o null si es nuevo
+  let presupuestoActual = null;
   let fmtCLP = v => new Intl.NumberFormat('es-CL', {
     style: 'currency', currency: 'CLP', maximumFractionDigits: 0
   }).format(v);
@@ -40,22 +42,27 @@ const Cotizacion = (() => {
   }
 
   // ── Abre el modal para configurar los datos del cliente antes de imprimir la cotización ──
-  function abrirModalPresupuesto() {
+  function abrirModalPresupuesto(accion = 'imprimir') {
     const modal = document.getElementById('modal-cotizacion');
     if (!modal) return;
 
     modal._mode = 'save';
+    const guardar = accion === 'guardar';
     
-    // Cambiar botón del modal para imprimir/guardar presupuesto
+    // Cambiar botón del modal para imprimir o guardar el presupuesto
     const btnSubmit = modal.querySelector('.btn-cotizar');
     if (btnSubmit) {
       btnSubmit.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Generar e Imprimir
+        ${guardar ? (presupuestoActual ? 'Guardar Cambios' : 'Guardar Presupuesto') : 'Generar e Imprimir'}
       `;
       btnSubmit.onclick = () => {
-        cerrarModal();
-        imprimir();
+        if (guardar) {
+          guardarPresupuesto();
+        } else {
+          cerrarModal();
+          imprimir();
+        }
       };
     }
 
@@ -343,7 +350,7 @@ const Cotizacion = (() => {
     const notas     = document.getElementById('cot-notas')?.value     || '';
 
     const fecha     = new Date().toLocaleDateString('es-CL', { day:'2-digit', month:'long', year:'numeric' });
-    const folio     = 'COT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-4);
+    const folio     = presupuestoActual?.folio || 'COT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-4);
     const logoUrl   = window.location.origin + '/logo.jpg';
 
     const totalNeto  = items.reduce((s, i) => s + i.neto, 0);
@@ -600,6 +607,8 @@ const Cotizacion = (() => {
 
   function limpiar() {
     items = [];
+    presupuestoActual = null;
+    actualizarEtiquetaPresupuesto();
     renderizarItems();
     document.getElementById('panel-cotizacion').style.display = 'none';
     document.getElementById('cotizacion-count').textContent = '0';
@@ -623,6 +632,174 @@ const Cotizacion = (() => {
     }
 
     abrirModal({ cfg, totales, canvasDataUrl });
+  }
+
+  // ── Presupuestos guardados (Redis en Vercel, archivo local en desarrollo) ──
+  const CAMPOS_CLIENTE = {
+    nombre: 'cot-cliente', rut: 'cot-rut', direccion: 'cot-direccion', telefono: 'cot-telefono',
+    condicion: 'cot-condicion', plazo: 'cot-plazo', vigencia: 'cot-vigencia', notas: 'cot-notas',
+  };
+
+  function leerCliente() {
+    const c = {};
+    for (const [k, id] of Object.entries(CAMPOS_CLIENTE)) c[k] = document.getElementById(id)?.value || '';
+    return c;
+  }
+
+  function ponerCliente(c = {}) {
+    for (const [k, id] of Object.entries(CAMPOS_CLIENTE)) {
+      const el = document.getElementById(id);
+      if (el && c[k] !== undefined) el.value = c[k];
+    }
+  }
+
+  function escapar(t) {
+    return String(t ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  }
+
+  function actualizarEtiquetaPresupuesto() {
+    const el = document.getElementById('cot-presup-label');
+    if (!el) return;
+    el.textContent = presupuestoActual
+      ? `${presupuestoActual.folio}${presupuestoActual.cliente ? ' · ' + presupuestoActual.cliente : ''}`
+      : '';
+    el.style.display = presupuestoActual ? 'inline' : 'none';
+  }
+
+  function mostrarPanel() {
+    const panel = document.getElementById('panel-cotizacion');
+    if (panel) {
+      panel.style.display = items.length ? 'block' : 'none';
+      panel.classList.remove('collapsed');
+    }
+    const chevron = document.getElementById('cot-panel-chevron');
+    if (chevron) chevron.textContent = '🔽';
+    document.getElementById('cotizacion-count').textContent = items.length;
+    if (typeof Wizard !== 'undefined') Wizard.actualizarBadgePaso3(items.length);
+  }
+
+  async function api(url, opciones = {}) {
+    const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opciones });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+    return json;
+  }
+
+  // Abre el modal de datos del cliente para revisarlos antes de guardar
+  function solicitarGuardar() {
+    if (items.length === 0) {
+      App.toast('Agregue al menos un ítem antes de guardar', 'error');
+      return;
+    }
+    abrirModalPresupuesto('guardar');
+  }
+
+  async function guardarPresupuesto() {
+    const cliente = leerCliente();
+    if (!cliente.nombre.trim()) {
+      App.toast('El nombre del cliente es obligatorio para guardar', 'error');
+      document.getElementById('cot-cliente')?.focus();
+      return;
+    }
+    const cuerpo = JSON.stringify({ cliente, items: items.map(({ imagen, ...resto }) => resto) });
+    try {
+      const r = presupuestoActual
+        ? await api(`/api/presupuestos/${encodeURIComponent(presupuestoActual.id)}`, { method: 'PUT', body: cuerpo })
+        : await api('/api/presupuestos', { method: 'POST', body: cuerpo });
+      const nuevo = !presupuestoActual;
+      presupuestoActual = { id: r.id, folio: r.folio, cliente: r.cliente };
+      actualizarEtiquetaPresupuesto();
+      cerrarModal();
+      App.toast(`💾 Presupuesto ${r.folio} ${nuevo ? 'guardado' : 'actualizado'}`, 'success');
+    } catch (e) {
+      App.toast('No se pudo guardar: ' + e.message, 'error');
+    }
+  }
+
+  let listaPresupuestos = [];
+
+  async function abrirPresupuestos() {
+    const modal = document.getElementById('modal-presupuestos');
+    if (!modal) return;
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    const buscador = document.getElementById('presup-buscar');
+    if (buscador) buscador.value = '';
+    const cont = document.getElementById('presup-lista');
+    cont.innerHTML = '<div class="presup-vacio">Cargando…</div>';
+    try {
+      listaPresupuestos = await api('/api/presupuestos');
+      renderListaPresupuestos();
+    } catch (e) {
+      cont.innerHTML = `<div class="presup-vacio">No se pudo cargar la lista: ${escapar(e.message)}</div>`;
+    }
+  }
+
+  function cerrarPresupuestos() {
+    document.getElementById('modal-presupuestos')?.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function renderListaPresupuestos() {
+    const cont = document.getElementById('presup-lista');
+    if (!cont) return;
+    const q = (document.getElementById('presup-buscar')?.value || '').trim().toLowerCase();
+    const lista = listaPresupuestos.filter(p =>
+      !q || (p.cliente || '').toLowerCase().includes(q) || (p.folio || '').toLowerCase().includes(q));
+    if (lista.length === 0) {
+      cont.innerHTML = `<div class="presup-vacio">${listaPresupuestos.length ? 'Sin resultados' : 'Aún no hay presupuestos guardados'}</div>`;
+      return;
+    }
+    const fecha = iso => iso ? new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    cont.innerHTML = lista.map(p => `
+      <div class="presup-row${presupuestoActual?.id === p.id ? ' activo' : ''}">
+        <div class="presup-info">
+          <div class="presup-folio">${escapar(p.folio)}</div>
+          <div class="presup-cliente">${escapar(p.cliente) || '<em>Sin cliente</em>'}</div>
+          <div class="presup-meta">${p.nItems} ítem${p.nItems === 1 ? '' : 's'} · ${fecha(p.actualizado)}</div>
+        </div>
+        <div class="presup-total">${fmtCLP(p.total)}</div>
+        <div class="presup-acciones">
+          <button class="cot-panel-btn" onclick="Cotizacion.cargarPresupuesto('${escapar(p.id)}')">Abrir</button>
+          <button class="cot-del-btn" onclick="Cotizacion.eliminarPresupuesto('${escapar(p.id)}')" title="Eliminar">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function cargarPresupuesto(id) {
+    if (items.length > 0 && presupuestoActual?.id !== id &&
+        !confirm('Se reemplazará la cotización que está en pantalla. ¿Continuar?')) return;
+    try {
+      const p = await api(`/api/presupuestos/${encodeURIComponent(id)}`);
+      items = p.items.map(it => ({ ...it, id: ++nextId, imagen: CanvasDraw.imagenEsquema(it.cfg || {}) }));
+      ponerCliente(p.cliente);
+      presupuestoActual = { id: p.id, folio: p.folio, cliente: p.cliente?.nombre || '' };
+      renderizarItems();
+      mostrarPanel();
+      actualizarEtiquetaPresupuesto();
+      cerrarPresupuestos();
+      App.toast(`📂 Presupuesto ${p.folio} abierto`, 'success');
+    } catch (e) {
+      App.toast('No se pudo abrir: ' + e.message, 'error');
+    }
+  }
+
+  async function eliminarPresupuesto(id) {
+    const p = listaPresupuestos.find(x => x.id === id);
+    if (!confirm(`¿Eliminar el presupuesto ${p?.folio || ''}${p?.cliente ? ' de ' + p.cliente : ''}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await api(`/api/presupuestos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      listaPresupuestos = listaPresupuestos.filter(x => x.id !== id);
+      if (presupuestoActual?.id === id) {
+        presupuestoActual = null;
+        actualizarEtiquetaPresupuesto();
+      }
+      renderListaPresupuestos();
+      App.toast('Presupuesto eliminado', 'warning');
+    } catch (e) {
+      App.toast('No se pudo eliminar: ' + e.message, 'error');
+    }
   }
 
   function togglePanel() {
@@ -649,6 +826,13 @@ const Cotizacion = (() => {
     imprimir,
     limpiar,
     togglePanel,
+    solicitarGuardar,
+    guardarPresupuesto,
+    abrirPresupuestos,
+    cerrarPresupuestos,
+    renderListaPresupuestos,
+    cargarPresupuesto,
+    eliminarPresupuesto,
     getItems: () => items,
   };
 })();
