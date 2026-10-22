@@ -188,6 +188,32 @@ const Cotizacion = (() => {
     if (typeof Wizard !== 'undefined') Wizard.actualizarBadgePaso3(items.length);
   }
 
+  // Edita cantidad o valor unitario neto de un ítem y recalcula neto, IVA y total
+  function editarItem(id, campo, valor) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const cant = item.cantidad || 1;
+    let unitNeto = Math.round(item.neto / cant);
+    let cantidad = cant;
+
+    const n = Math.round(parseFloat(valor));
+    if (campo === 'cantidad') {
+      if (!(n >= 1)) { App.toast('La cantidad debe ser 1 o más', 'error'); renderizarItems(); return; }
+      cantidad = n;
+    } else if (campo === 'unitNeto') {
+      if (!(n >= 0)) { App.toast('Ingrese un valor válido', 'error'); renderizarItems(); return; }
+      unitNeto = n;
+    }
+
+    const ivaPct     = item.cfg?.iva ?? 19;
+    item.cantidad    = cantidad;
+    item.neto        = unitNeto * cantidad;
+    item.iva         = Math.round(item.neto * ivaPct / 100);
+    item.precio      = item.neto + item.iva;
+    item.precioUnit  = Math.round(item.precio / cantidad);
+    renderizarItems();
+  }
+
   function m2De(cfg, cantidad) {
     const anchoMm = cfg.anchoMm || Math.round((cfg.ancho || 0) * 1000);
     const altoMm  = cfg.altoMm  || Math.round((cfg.alto  || 0) * 1000);
@@ -235,8 +261,14 @@ const Cotizacion = (() => {
           <div class="cot-item-desc">${item.descripcion}</div>
           <div class="cot-item-det">${item.detalle}</div>
         </td>
-        <td class="cot-td-num">${item.cantidad}</td>
-        <td class="cot-td-money">${fmtCLP(item.precioUnit)}</td>
+        <td class="cot-td-num">
+          <input type="number" class="cot-edit-input cot-edit-cant" min="1" step="1" value="${item.cantidad}"
+            onchange="Cotizacion.editarItem(${item.id}, 'cantidad', this.value)" title="Editar cantidad" />
+        </td>
+        <td class="cot-td-money">
+          <input type="number" class="cot-edit-input" min="0" step="1" value="${Math.round(item.neto / (item.cantidad || 1))}"
+            onchange="Cotizacion.editarItem(${item.id}, 'unitNeto', this.value)" title="Editar valor unitario neto" />
+        </td>
         <td class="cot-td-money" style="font-weight:700">${fmtCLP(item.precio)}</td>
         <td><button class="cot-del-btn" onclick="Cotizacion.eliminarItem(${item.id})" title="Eliminar">✕</button></td>
       </tr>
@@ -563,6 +595,7 @@ const Cotizacion = (() => {
     agregarItem,
     agregarItemDirecto,
     eliminarItem,
+    editarItem,
     renderizarItems,
     setActual,
     solicitarAgregar,

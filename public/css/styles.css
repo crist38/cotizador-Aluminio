@@ -1591,6 +1591,29 @@ body.light-theme .cot-table tbody tr:hover {
   padding: 0 1.25rem 0.6rem;
 }
 
+.cot-table .cot-edit-input {
+  width: 110px;
+  padding: 0.3rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.cot-table .cot-edit-input.cot-edit-cant {
+  width: 60px;
+  text-align: center;
+}
+
+.cot-table .cot-edit-input:focus {
+  outline: none;
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
 .cot-del-btn {
   background: transparent;
   border: none;
