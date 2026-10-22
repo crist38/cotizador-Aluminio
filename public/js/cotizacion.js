@@ -285,8 +285,8 @@ const Cotizacion = (() => {
           <div style="font-size:10px;color:#64748b;margin-top:2px">${item.detalle}</div>
         </td>
         <td style="text-align:center">${item.cantidad}</td>
-        <td style="text-align:right;font-family:'JetBrains Mono',monospace">${fmtCLP(item.precioUnit)}</td>
-        <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:#0f172a">${fmtCLP(item.precio)}</td>
+        <td style="text-align:right;font-family:'JetBrains Mono',monospace">${fmtCLP(Math.round(item.neto / (item.cantidad || 1)))}</td>
+        <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:#0f172a">${fmtCLP(item.neto)}</td>
       </tr>
     `).join('');
 
@@ -426,8 +426,8 @@ const Cotizacion = (() => {
         <th style="width:190px">Esquema</th>
         <th>Descripción</th>
         <th class="c" style="width:60px">Cant.</th>
-        <th class="r" style="width:120px">P. Unit c/IVA</th>
-        <th class="r" style="width:130px">Total c/IVA</th>
+        <th class="r" style="width:120px">P. Unit Neto</th>
+        <th class="r" style="width:130px">Total Neto</th>
       </tr>
     </thead>
     <tbody>${filasItems}</tbody>
