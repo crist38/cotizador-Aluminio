@@ -75,7 +75,7 @@ const Cotizacion = (() => {
     const colorMap  = { 'BL': 'Blanco', 'B': 'Bronce', 'M': 'Mate', 'RO': 'Roble', 'T': 'Titanio' };
     const colorNom  = colorMap[cfg.coloalLabel || cfg.coloal] || cfg.coloal;
     const vidrioMap = {
-      'VD4MM':'Vidrio 4mm Transparente','VD6MM':'Vidrio 6mm Transparente',
+      'VD4MM':'Vidrio 4mm Transparente','VD5INC':'Vidrio 5mm Incoloro','VD6MM':'Vidrio 6mm Transparente',
       'VD4REF':'Vidrio 4mm Reflectante','VD6REF':'Vidrio 6mm Reflectante',
       'ACRILICO':'Panel Acrílico','SV':'Sin Vidrio'
     };
@@ -133,7 +133,7 @@ const Cotizacion = (() => {
     const colorMap  = { 'BL': 'Blanco', 'B': 'Bronce', 'M': 'Mate', 'RO': 'Roble', 'T': 'Titanio' };
     const colorNom  = colorMap[cfg.coloalLabel || cfg.coloal] || cfg.coloal;
     const vidrioMap = {
-      'VD4MM':'Vidrio 4mm Transparente','VD6MM':'Vidrio 6mm Transparente',
+      'VD4MM':'Vidrio 4mm Transparente','VD5INC':'Vidrio 5mm Incoloro','VD6MM':'Vidrio 6mm Transparente',
       'VD4REF':'Vidrio 4mm Reflectante','VD6REF':'Vidrio 6mm Reflectante',
       'ACRILICO':'Panel Acrílico','SV':'Sin Vidrio'
     };

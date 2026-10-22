@@ -110,6 +110,25 @@ const Wizard = (() => {
     'AL32_PANO': 'AL32_PANO', 'AL42_PANO': 'AL42_PANO', 'FIJO_TUBOS': 'FIJO_TUBOS',
   };
 
+  // Cristales compatibles por línea (cfg.lin); las líneas no listadas usan VIDRIOS_DEFAULT.
+  // Los códigos deben existir como <option> en #sel-vidrio.
+  const VIDRIOS_DEFAULT = ['VD4MM', 'VD6MM', 'VD4REF', 'VD6REF', 'ACRILICO', 'SV'];
+  const VIDRIOS_LINEA = {
+    'AL25': ['VD4MM', 'VD5INC', 'VD6MM', 'VD4REF', 'VD6REF', 'ACRILICO', 'SV'],
+  };
+
+  // Muestra en #sel-vidrio solo los cristales de la línea elegida
+  function filtrarVidrios() {
+    const sel = document.getElementById('sel-vidrio');
+    const permitidos = VIDRIOS_LINEA[cfg.lin] || VIDRIOS_DEFAULT;
+    [...sel.options].forEach(op => {
+      const ok = permitidos.includes(op.value);
+      op.hidden = !ok;
+      op.disabled = !ok;
+    });
+    if (!permitidos.includes(sel.value)) sel.value = permitidos[0];
+  }
+
   function getSubtipoSVG(id) {
     if (['AL15', 'AL20', 'AL25', 'L5000'].includes(id)) {
       return `
@@ -258,6 +277,7 @@ const Wizard = (() => {
 
     // Título del paso 3
     document.getElementById('medidas-title').textContent = label;
+    filtrarVidrios();
 
     // Rellenar opciones extra dentro del paso de medidas
     const fields = camposOpciones();

@@ -398,6 +398,7 @@ function defaultPrices() {
     { codigo: 'ALCO5029C', descripcion: 'Junquillo 5029 Champagne', precio: 2500, medida: 'P', peso: 0.25 },
     // ===== VIDRIOS =====
     { codigo: 'VD4MM', descripcion: 'Vidrio 4mm Transparente', precio: 8500, medida: 'A', peso: 1 },
+    { codigo: 'VD5INC', descripcion: 'Vidrio 5mm Incoloro', precio: 10000, medida: 'A', peso: 1 },
     { codigo: 'VD6MM', descripcion: 'Vidrio 6mm Transparente', precio: 12000, medida: 'A', peso: 1 },
     { codigo: 'VD4REF', descripcion: 'Vidrio 4mm Reflectante', precio: 11000, medida: 'A', peso: 1 },
     { codigo: 'VD6REF', descripcion: 'Vidrio 6mm Reflectante', precio: 15000, medida: 'A', peso: 1 },
