@@ -87,7 +87,7 @@ const Imprimir = (() => {
       </div>`).join('');
 
     // Base URL del servidor para cargar el logo en la ventana de impresión
-    const logoUrl = window.location.origin + '/logo.png';
+    const logoUrl = window.location.origin + '/logo.jpg';
 
     return `
 <!DOCTYPE html>
@@ -155,6 +155,7 @@ const Imprimir = (() => {
     <!-- ENCABEZADO -->
     <div class="doc-header">
       <div class="doc-brand">
+        <img src="${logoUrl}" alt="Logo"/>
         <div class="brand-text">
           <h1>Sistema Técnico de Pautas de Corte</h1>
           <p>Cálculo de Pautas de Corte de Aluminio & Cristales</p>
@@ -196,6 +197,7 @@ const Imprimir = (() => {
     <!-- PIE DE PÁGINA -->
     <div class="doc-footer">
       <div class="doc-footer-left">
+        <img src="${logoUrl}" alt="Logo"/>
         <div class="doc-footer-info">
           <div class="co">Sistema de Pautas de Corte</div>
         </div>

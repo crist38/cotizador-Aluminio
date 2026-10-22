@@ -263,7 +263,7 @@ const Cotizacion = (() => {
 
     const fecha     = new Date().toLocaleDateString('es-CL', { day:'2-digit', month:'long', year:'numeric' });
     const folio     = 'COT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-4);
-    const logoUrl   = window.location.origin + '/logo.png';
+    const logoUrl   = window.location.origin + '/logo.jpg';
 
     const totalNeto  = items.reduce((s, i) => s + i.neto, 0);
     const totalIva   = items.reduce((s, i) => s + i.iva, 0);
@@ -404,6 +404,7 @@ const Cotizacion = (() => {
   <!-- ENCABEZADO -->
   <div class="hdr">
     <div>
+      <div class="hdr-logo"><img src="${logoUrl}" alt="Logo"/></div>
       <div class="hdr-empresa">
         <h1>Cotización de Pautas de Corte</h1>
         <p>Aluminio & Cristales</p>
@@ -503,6 +504,7 @@ const Cotizacion = (() => {
   <!-- PIE DE PÁGINA -->
   <div class="doc-foot">
     <div class="doc-foot-left">
+      <img src="${logoUrl}" alt="Logo"/>
       <div class="doc-foot-info">
         <div class="co">Sistema de Pautas de Corte</div>
       </div>
