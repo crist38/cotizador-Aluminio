@@ -1591,6 +1591,34 @@ body.light-theme .cot-table tbody tr:hover {
   padding: 0 1.25rem 0.6rem;
 }
 
+/* ── Edición de un ítem de la cotización ── */
+.edicion-bar {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  background: var(--accent-glow);
+}
+
+.edicion-info { color: var(--text-primary); font-size: 0.9rem; }
+.edicion-acciones { display: flex; gap: 0.5rem; }
+
+.cot-edit-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+.cot-edit-btn:hover { background: var(--accent-glow); }
+
 /* ── Presupuestos guardados ── */
 .cot-presup-label {
   margin-left: 0.75rem;

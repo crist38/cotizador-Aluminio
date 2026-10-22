@@ -195,6 +195,14 @@
                 </div>
               </div>
 
+              <div id="edicion-bar" class="edicion-bar" style="display:none">
+                <div class="edicion-info">✏️ Editando el ítem <strong id="edicion-num"></strong> de la cotización</div>
+                <div class="edicion-acciones">
+                  <button class="btn-secondary" onclick="Wizard.cancelarEdicion()">Cancelar</button>
+                  <button class="btn-primary" onclick="Wizard.actualizarItemEditado()">Actualizar ítem</button>
+                </div>
+              </div>
+
               <div class="calcular-row">
                 <button class="btn-primary btn-calcular" onclick="Wizard.calcular()">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>

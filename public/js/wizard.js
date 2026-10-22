@@ -7,6 +7,8 @@ const Wizard = (() => {
   let history = [];
   let cfg = {};
   let preciosData = [];
+  // Ítem de la cotización cargado para editar ({ id, numero }) o null
+  let editando = null;
 
   // ── Árbol de menús ──
   const MENU = {
@@ -232,7 +234,7 @@ const Wizard = (() => {
     clearTimeout(barraTimer);
     barraTimer = setTimeout(async () => {
       const ok = await syncCurrentConfig(false);
-      Cotizacion.setActual(ok ? window._lastCfg : null, ok ? window._lastTotales : null);
+      Cotizacion.setActual(ok ? window._lastCfg : null, ok ? window._lastTotales : null, editando?.id);
     }, 250);
   }
 
@@ -731,8 +733,106 @@ const Wizard = (() => {
     }
   }
 
-  return { 
-    selectTipo, 
+  // ── Edición de un ítem ya agregado a la cotización ──
+  // Muestra la barra de edición y oculta los botones que agregarían un ítem nuevo
+  function actualizarModoEdicion() {
+    const bar = document.getElementById('edicion-bar');
+    if (bar) bar.style.display = editando ? 'flex' : 'none';
+    const num = document.getElementById('edicion-num');
+    if (num && editando) num.textContent = editando.numero;
+    const cotizar = document.getElementById('btn-cotizar-paso3');
+    if (cotizar) cotizar.style.display = editando ? 'none' : '';
+    const manager = document.querySelector('#step-medidas .cotizacion-manager-card');
+    if (manager) manager.style.display = editando ? 'none' : '';
+  }
+
+  function volverAlInicio() {
+    cfg = {};
+    history = [];
+    showStep('step-tipo');
+    document.querySelectorAll('.product-card').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+  }
+
+  function cargarItemParaEditar(item, numero) {
+    const c = item.cfg || {};
+    const sub = MENU[c.tipo]?.subs.find(s => s.id === c.subtipo);
+    if (!sub) {
+      App.toast('Este ítem no se puede editar en el formulario', 'error');
+      return;
+    }
+    editando = { id: item.id, numero };
+    cfg = {};
+    selectTipo(c.tipo);
+    selectSubtipo(c.tipo, c.subtipo, sub.label);
+
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+    setVal('inp-obra', c.obra || '');
+    setVal('inp-ancho', c.anchoMm || Math.round((c.ancho || 0) * 1000));
+    setVal('inp-alto',  c.altoMm  || Math.round((c.alto  || 0) * 1000));
+    setVal('inp-cant',  item.cantidad || c.cant || 1);
+    setVal('inp-porce', c.porce || 100);
+    setVal('inp-iva',   c.iva ?? 19);
+    const radio = document.querySelector(`input[name="color"][value="${c.coloalLabel || 'M'}"]`);
+    if (radio) radio.checked = true;
+    const selVid = document.getElementById('sel-vidrio');
+    if ([...selVid.options].some(o => o.value === c.vidi && !o.disabled)) selVid.value = c.vidi;
+
+    camposOpciones().forEach(f => {
+      const el = document.getElementById('opt-' + f.id);
+      if (!el) return;
+      if (f.id === 'hoja') el.value = c.hoja == 2 && c.fija == 1 ? 21 : (c.hoja || 2);
+      else if (c[f.id] !== undefined) el.value = c[f.id];
+    });
+    _readOpciones();
+    // Sincroniza las cotas editables sobre el dibujo (escuchan 'input')
+    ['inp-ancho', 'inp-alto'].forEach(id => document.getElementById(id)?.dispatchEvent(new Event('input')));
+    CanvasDraw.drawPreview(cfg);
+    actualizarModoEdicion();
+    actualizarBarraEnVivo();
+    document.getElementById('step-medidas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function actualizarItemEditado() {
+    if (!editando) return;
+    const ok = await syncCurrentConfig(false);
+    if (!ok) {
+      App.toast('Ingrese medidas válidas (mínimo 100 mm)', 'error');
+      return;
+    }
+    CanvasDraw.drawPreview(window._lastCfg);
+    const canvas = document.getElementById('preview-canvas');
+    const r = Cotizacion.reemplazarItem(editando.id, window._lastCfg, window._lastTotales,
+      canvas ? canvas.toDataURL('image/png') : null);
+    if (!r) {
+      App.toast('El ítem ya no está en la cotización', 'error');
+      cancelarEdicion(true);
+      return;
+    }
+    editando = null;
+    actualizarModoEdicion();
+    volverAlInicio();
+    App.toast(`✏️ Ítem ${r.numero} actualizado`, 'success');
+  }
+
+  // silencioso: solo sale del modo edición (al limpiar, abrir otro presupuesto o borrar el ítem)
+  function cancelarEdicion(silencioso = false) {
+    if (!editando) return;
+    editando = null;
+    actualizarModoEdicion();
+    Cotizacion.setActual(null);
+    if (!silencioso) {
+      volverAlInicio();
+      App.toast('Edición cancelada', '');
+    }
+  }
+
+  return {
+    cargarItemParaEditar,
+    actualizarItemEditado,
+    cancelarEdicion,
+    getEditandoId: () => editando?.id ?? null,
+    selectTipo,
     selectSubtipo, 
     calcular, 
     calcularYCotizar, 

@@ -77,8 +77,8 @@ const Cotizacion = (() => {
     document.body.style.overflow = '';
   }
 
-  // ── Agrega el ítem directamente sin pasar por el modal de cliente ──
-  function agregarItemDirecto(cfg, totales, canvasDataUrl) {
+  // ── Arma un ítem de cotización a partir de la configuración calculada ──
+  function construirItem(cfg, totales, canvasDataUrl, extra = '', id = ++nextId) {
     const colorMap  = { 'BL': 'Blanco', 'B': 'Bronce', 'M': 'Mate', 'RO': 'Roble', 'T': 'Titanio' };
     const colorNom  = colorMap[cfg.coloalLabel || cfg.coloal] || cfg.coloal;
     const vidrioMap = {
@@ -90,20 +90,47 @@ const Cotizacion = (() => {
 
     const anchoMm = cfg.anchoMm || Math.round(cfg.ancho * 1000);
     const altoMm  = cfg.altoMm  || Math.round(cfg.alto  * 1000);
+    const neto    = Math.round(totales.neto);
+    const iva     = Math.round(totales.iva);
 
-    const item = {
-      id:          ++nextId,
+    return {
+      id,
       descripcion: cfg.rotu || 'Producto de Aluminio',
-      detalle:     `${anchoMm} × ${altoMm} mm · ${colorNom} · ${vidrioNom}`,
+      detalle:     `${anchoMm} × ${altoMm} mm · ${colorNom} · ${vidrioNom}${extra ? ' · ' + extra : ''}`,
+      extra,
       cantidad:    cfg.cant || 1,
-      precio:      Math.round(totales.neto) + Math.round(totales.iva),
-      precioUnit:  Math.round((Math.round(totales.neto) + Math.round(totales.iva)) / (cfg.cant || 1)),
-      neto:        Math.round(totales.neto),
-      iva:         Math.round(totales.iva),
+      precio:      neto + iva,
+      precioUnit:  Math.round((neto + iva) / (cfg.cant || 1)),
+      neto,
+      iva,
       imagen:      canvasDataUrl || null,
       cfg:         { ...cfg },
       totales:     { ...totales },
     };
+  }
+
+  // ── Reemplaza un ítem existente (edición desde el wizard), manteniendo su posición ──
+  function reemplazarItem(id, cfg, totales, canvasDataUrl) {
+    const idx = items.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    items[idx] = construirItem(cfg, totales, canvasDataUrl, items[idx].extra || '', id);
+    renderizarItems();
+    mostrarPanel();
+    return { item: items[idx], numero: idx + 1 };
+  }
+
+  // Carga un ítem en el wizard para modificar medidas, línea, color, cristal u opciones
+  function editarArticulo(id) {
+    const item = items.find(i => i.id === id);
+    if (!item || typeof Wizard === 'undefined') return;
+    Wizard.cargarItemParaEditar(item, items.indexOf(item) + 1);
+    const panel = document.getElementById('panel-cotizacion');
+    if (panel && !panel.classList.contains('collapsed')) togglePanel();
+  }
+
+  // ── Agrega el ítem directamente sin pasar por el modal de cliente ──
+  function agregarItemDirecto(cfg, totales, canvasDataUrl) {
+    const item = construirItem(cfg, totales, canvasDataUrl);
 
     items.push(item);
     renderizarItems();
@@ -137,32 +164,7 @@ const Cotizacion = (() => {
 
     // Leer descripción personalizada si fue escrita en el modal
     const descExtra = document.getElementById('cot-desc-extra')?.value || '';
-    const colorMap  = { 'BL': 'Blanco', 'B': 'Bronce', 'M': 'Mate', 'RO': 'Roble', 'T': 'Titanio' };
-    const colorNom  = colorMap[cfg.coloalLabel || cfg.coloal] || cfg.coloal;
-    const vidrioMap = {
-      'VD4MM':'Vidrio 4mm Transparente','VD5INC':'Vidrio 5mm Incoloro','VD6MM':'Vidrio 6mm Transparente',
-      'VD4REF':'Vidrio 4mm Reflectante','VD6REF':'Vidrio 6mm Reflectante',
-      'ACRILICO':'Panel Acrílico','SV':'Sin Vidrio'
-    };
-    const vidrioNom = vidrioMap[cfg.vidi] || cfg.vidi;
-
-    const anchoMm = cfg.anchoMm || Math.round(cfg.ancho * 1000);
-    const altoMm  = cfg.altoMm  || Math.round(cfg.alto  * 1000);
-
-    const item = {
-      id:          ++nextId,
-      descripcion: cfg.rotu || 'Producto de Aluminio',
-      detalle:     `${anchoMm} × ${altoMm} mm · ${colorNom} · ${vidrioNom}${descExtra ? ' · ' + descExtra : ''}`,
-      extra:       descExtra,
-      cantidad:    cfg.cant || 1,
-      precio:      Math.round(totales.neto) + Math.round(totales.iva),
-      precioUnit:  Math.round((Math.round(totales.neto) + Math.round(totales.iva)) / (cfg.cant || 1)),
-      neto:        Math.round(totales.neto),
-      iva:         Math.round(totales.iva),
-      imagen:      canvasDataUrl || null,
-      cfg:         { ...cfg },
-      totales:     { ...totales },
-    };
+    const item = construirItem(cfg, totales, canvasDataUrl, descExtra);
 
     items.push(item);
     renderizarItems();
@@ -185,6 +187,7 @@ const Cotizacion = (() => {
   }
 
   function eliminarItem(id) {
+    if (typeof Wizard !== 'undefined' && Wizard.getEditandoId() === id) Wizard.cancelarEdicion(true);
     items = items.filter(i => i.id !== id);
     renderizarItems();
     if (items.length === 0) {
@@ -233,17 +236,19 @@ const Cotizacion = (() => {
       a.tipo === b.tipo && a.subtipo === b.subtipo && a.cant === b.cant;
   }
 
-  // Ventana en edición: se suma a la barra mientras no esté ya en la cotización
-  function setActual(cfg, totales) {
-    actual = cfg && totales ? { cfg: { ...cfg }, totales: { ...totales } } : null;
+  // Ventana en edición: se suma a la barra mientras no esté ya en la cotización.
+  // Con reemplazaId (ítem cargado para editar) la barra muestra ese ítem ya modificado.
+  function setActual(cfg, totales, reemplazaId = null) {
+    actual = cfg && totales ? { cfg: { ...cfg }, totales: { ...totales }, reemplazaId } : null;
     actualizarBarra();
   }
 
   function actualizarBarra() {
-    let m2    = items.reduce((s, i) => s + m2De(i.cfg, i.cantidad), 0);
-    let neto  = items.reduce((s, i) => s + i.neto, 0);
-    let total = items.reduce((s, i) => s + i.precio, 0);
-    if (actual && !items.some(i => mismaVentana(i.cfg, actual.cfg))) {
+    const base  = actual?.reemplazaId ? items.filter(i => i.id !== actual.reemplazaId) : items;
+    let m2    = base.reduce((s, i) => s + m2De(i.cfg, i.cantidad), 0);
+    let neto  = base.reduce((s, i) => s + i.neto, 0);
+    let total = base.reduce((s, i) => s + i.precio, 0);
+    if (actual && (actual.reemplazaId || !items.some(i => mismaVentana(i.cfg, actual.cfg)))) {
       m2    += m2De(actual.cfg, actual.cfg.cant || 1);
       neto  += actual.totales.neto || 0;
       total += actual.totales.conIva || 0;
@@ -278,7 +283,10 @@ const Cotizacion = (() => {
             onchange="Cotizacion.editarItem(${item.id}, 'unitNeto', this.value)" title="Editar valor unitario neto" />
         </td>
         <td class="cot-td-money" style="font-weight:700">${fmtCLP(item.precio)}</td>
-        <td><button class="cot-del-btn" onclick="Cotizacion.eliminarItem(${item.id})" title="Eliminar">✕</button></td>
+        <td style="white-space:nowrap">
+          <button class="cot-edit-btn" onclick="Cotizacion.editarArticulo(${item.id})" title="Editar medidas, línea, color y cristal">✏️</button>
+          <button class="cot-del-btn" onclick="Cotizacion.eliminarItem(${item.id})" title="Eliminar">✕</button>
+        </td>
       </tr>
     `).join('');
 
@@ -606,6 +614,7 @@ const Cotizacion = (() => {
   }
 
   function limpiar() {
+    if (typeof Wizard !== 'undefined') Wizard.cancelarEdicion(true);
     items = [];
     presupuestoActual = null;
     actualizarEtiquetaPresupuesto();
@@ -772,6 +781,7 @@ const Cotizacion = (() => {
         !confirm('Se reemplazará la cotización que está en pantalla. ¿Continuar?')) return;
     try {
       const p = await api(`/api/presupuestos/${encodeURIComponent(id)}`);
+      if (typeof Wizard !== 'undefined') Wizard.cancelarEdicion(true);
       items = p.items.map(it => ({ ...it, id: ++nextId, imagen: CanvasDraw.imagenEsquema(it.cfg || {}) }));
       ponerCliente(p.cliente);
       presupuestoActual = { id: p.id, folio: p.folio, cliente: p.cliente?.nombre || '' };
@@ -820,6 +830,8 @@ const Cotizacion = (() => {
     agregarItemDirecto,
     eliminarItem,
     editarItem,
+    editarArticulo,
+    reemplazarItem,
     renderizarItems,
     setActual,
     solicitarAgregar,
