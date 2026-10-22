@@ -2214,3 +2214,11 @@ body.light-theme .cotizacion-manager-card .btn-mgr-delete {
 body.light-theme .cotizacion-manager-card .btn-mgr-delete:hover {
   box-shadow: 0 8px 25px rgba(225, 29, 72, 0.3);
 }
+
+/* Aviso de la barra de metraje cuando incluye la ventana del formulario */
+.metraje-nota {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--warning);
+}

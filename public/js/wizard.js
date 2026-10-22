@@ -831,6 +831,7 @@ const Wizard = (() => {
     cargarItemParaEditar,
     actualizarItemEditado,
     cancelarEdicion,
+    reiniciar: volverAlInicio,
     getEditandoId: () => editando?.id ?? null,
     selectTipo,
     selectSubtipo, 

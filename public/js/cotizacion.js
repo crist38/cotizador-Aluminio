@@ -248,10 +248,25 @@ const Cotizacion = (() => {
     let m2    = base.reduce((s, i) => s + m2De(i.cfg, i.cantidad), 0);
     let neto  = base.reduce((s, i) => s + i.neto, 0);
     let total = base.reduce((s, i) => s + i.precio, 0);
+    // Aviso cuando la barra no coincide con el panel por la ventana del formulario
+    let nota = '';
     if (actual && (actual.reemplazaId || !items.some(i => mismaVentana(i.cfg, actual.cfg)))) {
-      m2    += m2De(actual.cfg, actual.cfg.cant || 1);
-      neto  += actual.totales.neto || 0;
+      const m2Actual   = m2De(actual.cfg, actual.cfg.cant || 1);
+      const netoActual = actual.totales.neto || 0;
+      m2    += m2Actual;
+      neto  += netoActual;
       total += actual.totales.conIva || 0;
+      if (actual.reemplazaId) {
+        const n = items.findIndex(i => i.id === actual.reemplazaId) + 1;
+        nota = `Incluye el ítem ${n} con los cambios aún sin actualizar`;
+      } else {
+        nota = `+ ventana en el formulario, aún no agregada: ${m2Actual.toFixed(2)} m² · ${fmtCLP(netoActual)} neto`;
+      }
+    }
+    const notaEl = document.getElementById('bar-nota');
+    if (notaEl) {
+      notaEl.textContent = nota;
+      notaEl.style.display = nota ? 'block' : 'none';
     }
     document.getElementById('bar-m2').textContent      = m2.toFixed(2) + ' m²';
     document.getElementById('bar-prom-m2').textContent = fmtCLP(m2 > 0 ? neto / m2 : 0);
@@ -781,7 +796,10 @@ const Cotizacion = (() => {
         !confirm('Se reemplazará la cotización que está en pantalla. ¿Continuar?')) return;
     try {
       const p = await api(`/api/presupuestos/${encodeURIComponent(id)}`);
-      if (typeof Wizard !== 'undefined') Wizard.cancelarEdicion(true);
+      if (typeof Wizard !== 'undefined') {
+        Wizard.cancelarEdicion(true);
+        Wizard.reiniciar(); // la ventana que quedó en el formulario no debe sumarse a este presupuesto
+      }
       items = p.items.map(it => ({ ...it, id: ++nextId, imagen: CanvasDraw.imagenEsquema(it.cfg || {}) }));
       ponerCliente(p.cliente);
       presupuestoActual = { id: p.id, folio: p.folio, cliente: p.cliente?.nombre || '' };
