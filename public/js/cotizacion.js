@@ -272,40 +272,22 @@ const Cotizacion = (() => {
     const ivas = [...new Set(items.map(i => i.cfg?.iva ?? 19))];
     const ivaLabel = ivas.length === 1 ? `IVA (${ivas[0]}%)` : 'IVA';
 
-    // Filas de la tabla principal
+    // Filas de la tabla principal (esquema + descripción en una sola tabla)
     const filasItems = items.map((item, idx) => `
-      <tr>
+      <tr style="break-inside:avoid">
         <td style="text-align:center;color:#64748b;font-size:11px">${idx + 1}</td>
+        <td style="width:190px">
+          ${item.imagen ? `<img src="${item.imagen}" style="width:180px;height:auto;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;display:block" />` : ''}
+        </td>
         <td>
           <div style="font-weight:600;font-size:12px;color:#0f172a">${item.descripcion}</div>
+          <div style="font-size:10px;color:#64748b;margin-top:3px">Medida: <strong style="color:#0f172a">${item.cfg.anchoMm || Math.round(item.cfg.ancho*1000)} × ${item.cfg.altoMm || Math.round(item.cfg.alto*1000)} mm</strong></div>
           <div style="font-size:10px;color:#64748b;margin-top:2px">${item.detalle}</div>
         </td>
         <td style="text-align:center">${item.cantidad}</td>
         <td style="text-align:right;font-family:'JetBrains Mono',monospace">${fmtCLP(item.precioUnit)}</td>
         <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:#0f172a">${fmtCLP(item.precio)}</td>
       </tr>
-    `).join('');
-
-    // Imágenes de los productos
-    const imagenes = items.filter(i => i.imagen).map((item, idx) => `
-      <div style="break-inside:avoid;margin-bottom:20px">
-        <div style="font-size:11px;font-weight:600;color:#1a5c5a;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e2e8f0">
-          Ítem ${items.indexOf(item) + 1} — ${item.descripcion}
-        </div>
-        <div style="display:flex;gap:16px;align-items:flex-start">
-          <img src="${item.imagen}" style="width:260px;height:auto;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc" />
-          <div style="flex:1">
-            <table style="width:100%;font-size:11px;border-collapse:collapse">
-              <tr><td style="color:#64748b;padding:3px 0">Tipo:</td><td style="font-weight:600">${item.descripcion}</td></tr>
-              <tr><td style="color:#64748b;padding:3px 0">Medida:</td><td style="font-weight:600">${item.cfg.anchoMm || Math.round(item.cfg.ancho*1000)} × ${item.cfg.altoMm || Math.round(item.cfg.alto*1000)} mm</td></tr>
-              <tr><td style="color:#64748b;padding:3px 0">Detalle:</td><td style="font-weight:600">${item.detalle}</td></tr>
-              <tr><td style="color:#64748b;padding:3px 0">Cantidad:</td><td style="font-weight:600">${item.cantidad} unid.</td></tr>
-              <tr><td style="color:#64748b;padding:3px 0">P/Unit. c/IVA:</td><td style="font-weight:700;color:#1a5c5a">${fmtCLP(item.precioUnit)}</td></tr>
-              <tr><td style="color:#64748b;padding:3px 0">Total c/IVA:</td><td style="font-weight:700;color:#1a5c5a;font-size:13px">${fmtCLP(item.precio)}</td></tr>
-            </table>
-          </div>
-        </div>
-      </div>
     `).join('');
 
     return `<!DOCTYPE html>
@@ -441,6 +423,7 @@ const Cotizacion = (() => {
     <thead>
       <tr>
         <th class="c" style="width:36px">N°</th>
+        <th style="width:190px">Esquema</th>
         <th>Descripción</th>
         <th class="c" style="width:60px">Cant.</th>
         <th class="r" style="width:120px">P. Unit c/IVA</th>
@@ -482,13 +465,6 @@ const Cotizacion = (() => {
   <div class="notas-box">
     <strong>📝 Notas y Observaciones:</strong>
     ${notas}
-  </div>` : ''}
-
-  <!-- IMÁGENES DE PRODUCTOS -->
-  ${imagenes ? `
-  <div class="imgs-section">
-    <div class="section-title" style="margin-bottom:12px">Esquemas de Productos</div>
-    ${imagenes}
   </div>` : ''}
 
   <!-- FIRMAS -->
