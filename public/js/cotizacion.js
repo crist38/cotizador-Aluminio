@@ -89,10 +89,10 @@ const Cotizacion = (() => {
       descripcion: cfg.rotu || 'Producto de Aluminio',
       detalle:     `${anchoMm} × ${altoMm} mm · ${colorNom} · ${vidrioNom}`,
       cantidad:    cfg.cant || 1,
-      precio:      totales.conIva,
-      precioUnit:  Math.round(totales.conIva / (cfg.cant || 1)),
-      neto:        totales.neto,
-      iva:         totales.iva,
+      precio:      Math.round(totales.neto) + Math.round(totales.iva),
+      precioUnit:  Math.round((Math.round(totales.neto) + Math.round(totales.iva)) / (cfg.cant || 1)),
+      neto:        Math.round(totales.neto),
+      iva:         Math.round(totales.iva),
       imagen:      canvasDataUrl || null,
       cfg:         { ...cfg },
       totales:     { ...totales },
@@ -146,11 +146,12 @@ const Cotizacion = (() => {
       id:          ++nextId,
       descripcion: cfg.rotu || 'Producto de Aluminio',
       detalle:     `${anchoMm} × ${altoMm} mm · ${colorNom} · ${vidrioNom}${descExtra ? ' · ' + descExtra : ''}`,
+      extra:       descExtra,
       cantidad:    cfg.cant || 1,
-      precio:      totales.conIva,
-      precioUnit:  Math.round(totales.conIva / (cfg.cant || 1)),
-      neto:        totales.neto,
-      iva:         totales.iva,
+      precio:      Math.round(totales.neto) + Math.round(totales.iva),
+      precioUnit:  Math.round((Math.round(totales.neto) + Math.round(totales.iva)) / (cfg.cant || 1)),
+      neto:        Math.round(totales.neto),
+      iva:         Math.round(totales.iva),
       imagen:      canvasDataUrl || null,
       cfg:         { ...cfg },
       totales:     { ...totales },
@@ -282,6 +283,54 @@ const Cotizacion = (() => {
     actualizarBarra();
   }
 
+  // ── Descripción comercial del ítem para el PDF ──
+  const LINEA_NOM = {
+    AL15: 'AL/15', AL20: 'AL/20', AL25: 'AL/25', L5000: 'L‑5000',
+    AL32_ABATIR: 'AL/32', AL42_ABATIR: 'AL/42', AL32_PANO: 'AL/32', AL42_PANO: 'AL/42',
+    AM12: 'AM-12', AM35_ABATIR: 'AM/35', AM35_VAIVEN: 'AM/35',
+  };
+  const CRISTAL_NOM = {
+    VD4MM: 'cristal incoloro de 4.0 mm', VD5INC: 'cristal incoloro de 5.0 mm', VD6MM: 'cristal incoloro de 6.0 mm',
+    VD4REF: 'cristal reflectante de 4.0 mm', VD6REF: 'cristal reflectante de 6.0 mm',
+    ACRILICO: 'panel de acrílico', SV: 'sin cristal',
+  };
+  const COLOR_NOM = { BL: 'blanco', B: 'bronce', M: 'mate', RO: 'roble', T: 'titanio' };
+
+  function descripcionComercial(item) {
+    const c = item.cfg || {};
+    const linea = LINEA_NOM[c.lin] || '';
+    const color = COLOR_NOM[c.coloalLabel || c.coloal];
+    const partes = [];
+
+    if (c.tipo === 'ventana-corr') {
+      partes.push(`Ventana corredera línea ${linea}`);
+      const hojas = c.hoja == 2 && c.fija == 1 ? 'una hoja corredera y una fija'
+        : ({ 2: 'dos hojas', 3: 'tres hojas', 4: 'cuatro hojas' })[c.hoja] || 'dos hojas';
+      partes.push(hojas);
+      if (color) partes.push(`color ${color}`);
+      partes.push('pestillo metálico Open-lock');
+      if (c.pal === 'S') partes.push('con palillo horizontal');
+    } else if (c.tipo === 'ventana-doble') {
+      const doble = (c.subtipo || '').endsWith('_D');
+      partes.push(`${doble ? 'Ventana de abatir doble' : 'Ventana proyectante'} línea ${linea}`);
+      if (color) partes.push(`color ${color}`);
+    } else if (c.tipo === 'pano-fijo') {
+      partes.push(linea ? `Paño fijo línea ${linea}` : 'Paño fijo en tubos de aluminio');
+      if (color) partes.push(`color ${color}`);
+    } else {
+      partes.push(item.descripcion);
+      if (color) partes.push(`color ${color}`);
+    }
+
+    if (c.vidi) partes.push(CRISTAL_NOM[c.vidi] || c.vidi);
+    partes.push('instalado y sellado perimetral con silicona');
+    if (item.extra) partes.push(item.extra);
+
+    const anchoMm = c.anchoMm || Math.round((c.ancho || 0) * 1000);
+    const altoMm  = c.altoMm  || Math.round((c.alto  || 0) * 1000);
+    return `${partes.join(', ')}. <span style="white-space:nowrap">Medida: ${(anchoMm / 1000).toFixed(2)} x ${(altoMm / 1000).toFixed(2)}</span>`;
+  }
+
   // ── Genera el HTML de la cotización para imprimir ──
   function _htmlCotizacion() {
     const cliente   = document.getElementById('cot-cliente')?.value   || '';
@@ -308,13 +357,11 @@ const Cotizacion = (() => {
     const filasItems = items.map((item, idx) => `
       <tr style="break-inside:avoid">
         <td style="text-align:center;color:#64748b;font-size:11px">${idx + 1}</td>
-        <td style="width:190px">
-          ${item.imagen ? `<img src="${item.imagen}" style="width:180px;height:auto;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;display:block" />` : ''}
+        <td style="width:150px">
+          ${item.imagen ? `<img src="${item.imagen}" style="width:140px;height:auto;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;display:block" />` : ''}
         </td>
         <td>
-          <div style="font-weight:600;font-size:12px;color:#0f172a">${item.descripcion}</div>
-          <div style="font-size:10px;color:#64748b;margin-top:3px">Medida: <strong style="color:#0f172a">${item.cfg.anchoMm || Math.round(item.cfg.ancho*1000)} × ${item.cfg.altoMm || Math.round(item.cfg.alto*1000)} mm</strong></div>
-          <div style="font-size:10px;color:#64748b;margin-top:2px">${item.detalle}</div>
+          <div style="font-size:11px;color:#0f172a;line-height:1.45">${descripcionComercial(item)}</div>
         </td>
         <td style="text-align:center">${item.cantidad}</td>
         <td style="text-align:right;font-family:'JetBrains Mono',monospace">${fmtCLP(Math.round(item.neto / (item.cantidad || 1)))}</td>
@@ -444,7 +491,7 @@ const Cotizacion = (() => {
     </div>
     <div class="datos-box">
       <h4>Emisor</h4>
-      <div class="row"><span class="lbl">Empresa:</span><span class="val">Cálculo de Pautas</span></div>
+      <div class="row"><span class="lbl">Empresa:</span><span class="val">Pro Windows Limitada</span></div>
       <div class="row"><span class="lbl">Detalle:</span><span class="val">Aluminio & Cristales</span></div>
     </div>
   </div>
@@ -455,11 +502,11 @@ const Cotizacion = (() => {
     <thead>
       <tr>
         <th class="c" style="width:36px">N°</th>
-        <th style="width:190px">Esquema</th>
+        <th style="width:150px">Esquema</th>
         <th>Descripción</th>
-        <th class="c" style="width:60px">Cant.</th>
-        <th class="r" style="width:120px">P. Unit Neto</th>
-        <th class="r" style="width:130px">Total Neto</th>
+        <th class="c" style="width:50px">Cant.</th>
+        <th class="r" style="width:95px">P. Unit Neto</th>
+        <th class="r" style="width:100px">Total Neto</th>
       </tr>
     </thead>
     <tbody>${filasItems}</tbody>
