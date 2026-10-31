@@ -54,11 +54,13 @@ cd Aluminio
 # Instalar dependencias
 npm install
 
-# Iniciar el servidor
-node server.js
+# Iniciar el servidor (APP_PASSWORD: mínimo 12 caracteres)
+APP_PASSWORD="una_contraseña_larga" node server.js
 ```
 
 La aplicación estará disponible en: [http://localhost:3000](http://localhost:3000)
+
+**Acceso:** toda la aplicación pide la contraseña de la variable `APP_PASSWORD`. Sin esa variable nadie puede entrar; en Vercel hay que definirla en el proyecto. Al cambiarla se cierran todas las sesiones.
 
 ---
 

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -43,6 +44,101 @@ function getRedisClient() {
 }
 
 app.use(express.json({ limit: '5mb' }));
+
+// ── Acceso ──
+// Contraseña compartida en APP_PASSWORD. Sin ella (o si es muy corta) nadie puede entrar.
+const APP_PASSWORD = process.env.APP_PASSWORD || '';
+const MIN_PASSWORD = 12;
+const COOKIE_SESION = 'sesion';
+const DURACION_SESION = 8 * 60 * 60 * 1000;
+const MAX_FALLOS_LOGIN = 10;
+const VENTANA_FALLOS_LOGIN = 15 * 60;
+const RUTAS_PUBLICAS = new Set(['/login.html', '/logo.jpg']);
+// La clave de firma se deriva de la contraseña: al cambiarla se cierran todas las sesiones
+const CLAVE_SESION = APP_PASSWORD.length >= MIN_PASSWORD
+  ? crypto.scryptSync(APP_PASSWORD, 'cotizador-aluminio-sesion', 32)
+  : null;
+const fallosLoginLocal = new Map();
+
+function firmarSesion(valor) {
+  return crypto.createHmac('sha256', CLAVE_SESION).update(valor).digest('base64url');
+}
+
+function textosIguales(a, b) {
+  const hash = t => crypto.createHash('sha256').update(String(t)).digest();
+  return crypto.timingSafeEqual(hash(a), hash(b));
+}
+
+function sesionValida(req) {
+  if (!CLAVE_SESION) return false;
+  const cookie = (req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${COOKIE_SESION}=([^;]+)`));
+  if (!cookie) return false;
+  const [expira, firma] = cookie[1].split('.');
+  return Boolean(expira && firma) && textosIguales(firma, firmarSesion(expira)) && Number(expira) > Date.now();
+}
+
+function ipCliente(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+}
+
+async function fallosLogin(ip) {
+  if (useRedis) return Number(await redis(['GET', `login:fallos:${ip}`])) || 0;
+  const r = fallosLoginLocal.get(ip);
+  return r && r.expira > Date.now() ? r.fallos : 0;
+}
+
+async function registrarFalloLogin(ip) {
+  if (useRedis) {
+    const fallos = await redis(['INCR', `login:fallos:${ip}`]);
+    if (Number(fallos) === 1) await redis(['EXPIRE', `login:fallos:${ip}`, String(VENTANA_FALLOS_LOGIN)]);
+    return;
+  }
+  fallosLoginLocal.set(ip, { fallos: (await fallosLogin(ip)) + 1, expira: Date.now() + VENTANA_FALLOS_LOGIN * 1000 });
+}
+
+app.post('/api/login', async (req, res) => {
+  if (!CLAVE_SESION) {
+    console.error(`Falta APP_PASSWORD o tiene menos de ${MIN_PASSWORD} caracteres`);
+    return res.status(503).json({ error: 'El servidor no está configurado correctamente.' });
+  }
+  try {
+    const ip = ipCliente(req);
+    if (await fallosLogin(ip) >= MAX_FALLOS_LOGIN) {
+      return res.status(429).json({ error: 'Demasiados intentos. Espere 15 minutos.' });
+    }
+    if (!textosIguales(req.body?.password ?? '', APP_PASSWORD)) {
+      await registrarFalloLogin(ip);
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+    const expira = String(Date.now() + DURACION_SESION);
+    res.cookie(COOKIE_SESION, `${expira}.${firmarSesion(expira)}`, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: IS_VERCEL || process.env.NODE_ENV === 'production',
+      maxAge: DURACION_SESION,
+      path: '/',
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Error en login:', e);
+    res.status(500).json({ error: 'No se pudo iniciar sesión' });
+  }
+});
+
+app.post('/api/logout', (req, res) => {
+  res.clearCookie(COOKIE_SESION, { path: '/' });
+  res.json({ ok: true });
+});
+
+// Todo lo que sigue exige sesión, excepto la pantalla de login
+app.use((req, res, next) => {
+  if (RUTAS_PUBLICAS.has(req.path) || sesionValida(req)) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'No autorizado' });
+  res.redirect('/login.html');
+});
+
+app.get('/api/sesion', (req, res) => res.json({ ok: true }));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 if (!useRedis && !IS_VERCEL) {
