@@ -54,13 +54,13 @@ cd Aluminio
 # Instalar dependencias
 npm install
 
-# Iniciar el servidor (APP_PASSWORD: mínimo 12 caracteres)
-APP_PASSWORD="una_contraseña_larga" node server.js
+# Iniciar el servidor (SESSION_SECRET: mínimo 32 caracteres aleatorios)
+ODOO_URL="https://tu-empresa.odoo.com" ODOO_DB="tu-base-de-datos" SESSION_SECRET="genera_una_cadena_aleatoria_larga" node server.js
 ```
 
 La aplicación estará disponible en: [http://localhost:3000](http://localhost:3000)
 
-**Acceso:** toda la aplicación pide la contraseña de la variable `APP_PASSWORD`. Sin esa variable nadie puede entrar; en Vercel hay que definirla en el proyecto. Al cambiarla se cierran todas las sesiones.
+**Acceso:** se entra con el usuario y la contraseña de Odoo; solo pueden entrar usuarios internos, no cuentas de portal. La contraseña se usa para validar el login y no se guarda. Sin `ODOO_URL`, `ODOO_DB` y `SESSION_SECRET` nadie puede entrar; en Vercel hay que definirlas en el proyecto. Al cambiar `SESSION_SECRET` se cierran todas las sesiones.
 
 ---
 

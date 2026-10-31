@@ -46,19 +46,48 @@ function getRedisClient() {
 app.use(express.json({ limit: '5mb' }));
 
 // ── Acceso ──
-// Contraseña compartida en APP_PASSWORD. Sin ella (o si es muy corta) nadie puede entrar.
-const APP_PASSWORD = process.env.APP_PASSWORD || '';
-const MIN_PASSWORD = 12;
+// Se entra con el usuario y la contraseña de Odoo. La contraseña solo se usa para validar
+// el login y no se guarda. Sin ODOO_URL, ODOO_DB y SESSION_SECRET nadie puede entrar.
+const ODOO_URL = (process.env.ODOO_URL || '').replace(/\/+$/, '');
+const ODOO_DB = process.env.ODOO_DB || '';
+const SESSION_SECRET = process.env.SESSION_SECRET || '';
+const MIN_SECRET = 32;
 const COOKIE_SESION = 'sesion';
 const DURACION_SESION = 8 * 60 * 60 * 1000;
-const MAX_FALLOS_LOGIN = 10;
+const MAX_FALLOS_LOGIN = 20;
 const VENTANA_FALLOS_LOGIN = 15 * 60;
+const TIEMPO_MAX_ODOO = 15000;
 const RUTAS_PUBLICAS = new Set(['/login.html', '/logo.jpg']);
-// La clave de firma se deriva de la contraseña: al cambiarla se cierran todas las sesiones
-const CLAVE_SESION = APP_PASSWORD.length >= MIN_PASSWORD
-  ? crypto.scryptSync(APP_PASSWORD, 'cotizador-aluminio-sesion', 32)
+const CLAVE_SESION = SESSION_SECRET.length >= MIN_SECRET
+  ? crypto.createHash('sha256').update(SESSION_SECRET).digest()
   : null;
+const LOGIN_CONFIGURADO = Boolean(CLAVE_SESION && ODOO_URL && ODOO_DB);
 const fallosLoginLocal = new Map();
+
+async function odooRpc(service, method, args) {
+  const res = await fetch(`${ODOO_URL}/jsonrpc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', id: 1, params: { service, method, args } }),
+    signal: AbortSignal.timeout(TIEMPO_MAX_ODOO),
+  });
+  if (!res.ok) throw new Error(`Odoo HTTP ${res.status}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error.data?.message || json.error.message || 'Error de Odoo');
+  return json.result;
+}
+
+// Retorna { uid, nombre } si son credenciales válidas de un usuario interno.
+// Odoo también autentica cuentas de portal (clientes), que aquí no deben entrar.
+async function validarEnOdoo(email, password) {
+  const uid = await odooRpc('common', 'authenticate', [ODOO_DB, email, password, {}]);
+  if (!uid) return null;
+  const [usuario] = await odooRpc('object', 'execute_kw', [
+    ODOO_DB, uid, password, 'res.users', 'read', [[uid]], { fields: ['name', 'share'] },
+  ]);
+  if (usuario?.share !== false) return null;
+  return { uid, nombre: usuario.name };
+}
 
 function firmarSesion(valor) {
   return crypto.createHmac('sha256', CLAVE_SESION).update(valor).digest('base64url');
@@ -73,8 +102,13 @@ function sesionValida(req) {
   if (!CLAVE_SESION) return false;
   const cookie = (req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${COOKIE_SESION}=([^;]+)`));
   if (!cookie) return false;
-  const [expira, firma] = cookie[1].split('.');
-  return Boolean(expira && firma) && textosIguales(firma, firmarSesion(expira)) && Number(expira) > Date.now();
+  const [datos, firma] = cookie[1].split('.');
+  if (!datos || !firma || !textosIguales(firma, firmarSesion(datos))) return false;
+  try {
+    return JSON.parse(Buffer.from(datos, 'base64url').toString('utf8')).expira > Date.now();
+  } catch {
+    return false;
+  }
 }
 
 function ipCliente(req) {
@@ -97,21 +131,26 @@ async function registrarFalloLogin(ip) {
 }
 
 app.post('/api/login', async (req, res) => {
-  if (!CLAVE_SESION) {
-    console.error(`Falta APP_PASSWORD o tiene menos de ${MIN_PASSWORD} caracteres`);
+  if (!LOGIN_CONFIGURADO) {
+    console.error(`Falta ODOO_URL, ODOO_DB o SESSION_SECRET (mínimo ${MIN_SECRET} caracteres)`);
     return res.status(503).json({ error: 'El servidor no está configurado correctamente.' });
+  }
+  const { email, password } = req.body || {};
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+    return res.status(400).json({ error: 'Ingrese su usuario y contraseña de Odoo.' });
   }
   try {
     const ip = ipCliente(req);
     if (await fallosLogin(ip) >= MAX_FALLOS_LOGIN) {
       return res.status(429).json({ error: 'Demasiados intentos. Espere 15 minutos.' });
     }
-    if (!textosIguales(req.body?.password ?? '', APP_PASSWORD)) {
+    const usuario = await validarEnOdoo(email, password);
+    if (!usuario) {
       await registrarFalloLogin(ip);
-      return res.status(401).json({ error: 'Contraseña incorrecta' });
+      return res.status(401).json({ error: 'Usuario o contraseña de Odoo incorrectos.' });
     }
-    const expira = String(Date.now() + DURACION_SESION);
-    res.cookie(COOKIE_SESION, `${expira}.${firmarSesion(expira)}`, {
+    const datos = Buffer.from(JSON.stringify({ ...usuario, expira: Date.now() + DURACION_SESION })).toString('base64url');
+    res.cookie(COOKIE_SESION, `${datos}.${firmarSesion(datos)}`, {
       httpOnly: true,
       sameSite: 'lax',
       secure: IS_VERCEL || process.env.NODE_ENV === 'production',
@@ -121,7 +160,7 @@ app.post('/api/login', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('Error en login:', e);
-    res.status(500).json({ error: 'No se pudo iniciar sesión' });
+    res.status(502).json({ error: 'No se pudo conectar con Odoo. Intente nuevamente.' });
   }
 });
 

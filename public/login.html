@@ -26,8 +26,10 @@
   <form id="login">
     <img src="/logo.jpg" alt="Logo" />
     <h1>Sistema de Pautas de Corte</h1>
-    <label for="password">Contraseña</label>
-    <input id="password" type="password" autocomplete="current-password" required autofocus />
+    <label for="email">Usuario de Odoo</label>
+    <input id="email" type="text" autocomplete="username" placeholder="usuario@empresa.cl" required autofocus />
+    <label for="password" style="margin-top: 12px">Contraseña de Odoo</label>
+    <input id="password" type="password" autocomplete="current-password" required />
     <button type="submit">Ingresar</button>
     <p id="error" role="alert"></p>
   </form>
@@ -44,7 +46,10 @@
         const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: document.getElementById('password').value }),
+          body: JSON.stringify({
+            email: document.getElementById('email').value.trim(),
+            password: document.getElementById('password').value,
+          }),
         });
         if (res.ok) {
           location.replace('/');
